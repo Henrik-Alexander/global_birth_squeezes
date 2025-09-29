@@ -1,0 +1,9 @@
+# Files
+*.xlsx
+*.csv
+*.pdf
+*.html
+
+# Directories
+data/
+.Rproj.user

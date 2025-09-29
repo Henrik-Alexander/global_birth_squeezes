@@ -13,7 +13,7 @@ install_packages <- FALSE
 
 # Create the folder structure ==========================
 
-folders <- c("code", "raw", "data", "results", "text")
+folders <- c("code", "raw", "data", "results", "text", "R.utils")
 lapply(folders, function(folder) if(!dir.exists(folder)) dir.create(folder))
 
 
