@@ -39,8 +39,10 @@ ggplot(data=parity_age, aes(x=year, y=parity_age)) +
   geom_line(aes(group=region, colour=sdg_region)) +
   geom_smooth(se=FALSE, linewidth=2) +
   scale_x_continuous("Year", expand=c(0, 0), breaks=seq(1950, 2030, by=10)) +
-  scale_y_continuous("Parity age", breaks=seq(0, 100, by=10)) +
-  facet_wrap(~ sdg_region)
+  scale_y_continuous("Parity age", breaks=seq(0, 100, by=10), expand=c(0, 0)) +
+  facet_wrap(~ sdg_region) +
+  labs(subtitle="Age at which men and women have the same size, reflecting the excess men at birth and excess male mortality.",
+       caption="Source: author's calculation using WPP 2024.")
 ggsave(filename="results/parity_age_globally.pdf", height=20, width=25, unit="cm")
 
 # Plot China and Taiwan
@@ -48,7 +50,9 @@ ggplot(data=subset(parity_age, region %in% c("China", "Dem. People's Republic of
   geom_line(aes(group=region, colour=region), linewidth=2) +
   scale_x_continuous("Year", expand=c(0, 0), breaks=seq(1950, 2030, by=10)) +
   scale_y_continuous("Parity age", breaks=seq(0, 100, by=10)) +
-  facet_wrap(~ region)
+  facet_wrap(~ region) +
+  labs(subtitle="Age at which men and women have the same size, reflecting the excess men at birth and excess male mortality.",
+       caption="Source: author's calculation using WPP 2024.")
 ggsave(filename="results/parity_age_asian_examples.pdf", height=15, width=25, unit="cm")
 
 
@@ -60,7 +64,55 @@ ggplot(data=subset(df, region %in% c("China", "Dem. People's Republic of Korea",
   scale_x_continuous("Age", expand=c(0, 0), breaks=seq(0, 100, by=10)) +
   scale_y_continuous("Sex ratio of life table survivors accounting for SRB", breaks=seq(0, 2, by=0.1), expand=c(0, 0)) +
   scale_colour_viridis_d("Year") +
-  facet_wrap(~ region)
+  facet_wrap(~ region) +
+  labs(subtitle="Sex ratio of a synthetic cohort reflecting sex-specific mortality and sex ratio at birth.",
+       caption="Source: author's calculation using WPP 2024.")
 ggsave(filename="results/lifetable_sr_asian_examples.pdf", height=15, width=25, unit="cm")
+
+
+## Cohort perspective ===========================
+
+# Merge the new cohort data
+df_coh <- merge(dt_wpp_lt, dt_wpp_srb, by=c("region", "location_code", "year"), all.x=TRUE, all.y=TRUE)
+
+# Remove the unnecacy columns
+df_coh <- df_coh[ , .(region, location_code, year, age, n, px_m, px_f, srb)]
+
+# Estimate the cohort
+df_coh[, cohort:=year - age]
+df_coh[, cohort2:=year - age + 1]
+
+# Remove the year column
+df_coh[, year:=NULL]
+
+# Estimate the average survival probability for adjacent cohorts
+df_coh <- merge(x=df_coh, y=df_coh, 
+                by.x=c("age", "region", "location_code", "cohort"),
+                by.y = c("age", "region", "location_code", "cohort2"),
+                suffixes=c("_coh1", "_coh2"), all.x=T, all.y=F)
+
+# Estimate the cohort survival probabilities
+df_coh[ , px_m := (px_m_coh1 + px_m_coh2)/2]
+df_coh[ , px_f := (px_f_coh1 + px_f_coh2)/2]
+
+# Select the important columns
+df_coh <- df_coh[!is.na(px_m) & !is.na(px_f) & !is.na(srb_coh1) & cohort >= 1950, .(region, age, location_code, cohort, srb=srb_coh1, px_f, px_m)]
+
+# Set the keys
+setkeyv(df_coh, c("region", "cohort"))
+
+# Order by region, cohort and yeaqr
+df_coh <- df_coh[order(region, cohort, age), ]
+
+# Estimate the number of survival
+df_coh[, sx_m := srb*cumprod(px_m), by = .(region, location_code, cohort)]
+df_coh[, sx_f := 100*cumprod(px_f), by = .(region, location_code, cohort)]
+
+
+# Plot the survival curves for the 
+ggplot(data=subset(df_coh, region=="Norway" & cohort %in% seq(1950, 2000, by=10)), aes(x=age, y=sx_m/sx_f, group=cohort, colour=cohort)) +
+  geom_line() +
+  scale_colour_gradient(low="blue", high="red") +
+  geom_hline(yintercept = 1)
 
 ### END #######################################
