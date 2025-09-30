@@ -19,7 +19,7 @@ load("data/wpp_location.Rda")
 # Merge the data
 df <- merge(dt_wpp_lt, dt_wpp_srb, by=c("region", "location_code", "year"), all.x=TRUE, all.y=TRUE)
 
-# 2. Plot the data ============================
+# 2. Estiamte period parity age  ============================
 
 # Estimate the number of survival
 df[, sx_m := srb*cumprod(px_m), by = .(region, location_code, year)]
@@ -33,6 +33,11 @@ parity_age <- df[female_skewed==1, .(parity_age=min(age, na.rm = T)-0.5), by = .
 
 # Merge with the location data
 parity_age <- merge(parity_age, wpp_location, by="region")
+
+# Save the parity age for periods
+save(parity_age, file="data/parity_age_period.Rda")
+
+## 2.2. Plot period results --------------------------------
 
 # Plot the parity age
 ggplot(data=parity_age, aes(x=year, y=parity_age)) +
@@ -68,7 +73,6 @@ ggplot(data=subset(df, region %in% c("China", "Dem. People's Republic of Korea",
   labs(subtitle="Sex ratio of a synthetic cohort reflecting sex-specific mortality and sex ratio at birth.",
        caption="Source: author's calculation using WPP 2024.")
 ggsave(filename="results/lifetable_sr_asian_examples.pdf", height=15, width=25, unit="cm")
-
 
 ## Cohort perspective ===========================
 
@@ -108,11 +112,32 @@ df_coh <- df_coh[order(region, cohort, age), ]
 df_coh[, sx_m := srb*cumprod(px_m), by = .(region, location_code, cohort)]
 df_coh[, sx_f := 100*cumprod(px_f), by = .(region, location_code, cohort)]
 
+## 2.1 Estimate the cohort parity age ------------------------------
+
+# Plot the parity age
+df_coh[, female_skewed := ifelse(sx_f>sx_m, 1, 0)]
+
+# Create the parity age
+parity_age_coh <- df_coh[female_skewed==1, .(parity_age=min(age, na.rm = T)-0.5), by = .(region, location_code, cohort)]
+
+# Save the parity age for the cohort
+save(parity_age_coh, file="data/parity_age_cohort.Rda")
+
+## 2.2. Plot cohort results ----------------------------------------
 
 # Plot the survival curves for the 
 ggplot(data=subset(df_coh, region=="Norway" & cohort %in% seq(1950, 2000, by=10)), aes(x=age, y=sx_m/sx_f, group=cohort, colour=cohort)) +
   geom_line() +
   scale_colour_gradient(low="blue", high="red") +
   geom_hline(yintercept = 1)
+
+# Plot the lexis diagram
+ggplot(data=subset(df_coh, region=="Norway")) +
+  geom_tile(aes(x=cohort+age, y=age, fill=sx_m/sx_f)) +
+  geom_step(data=subset(parity_age_coh, region=="Norway"), aes(x=cohort+parity_age, y=parity_age), colour="black") +
+  scale_fill_gradient2(midpoint=1, high="darkred", low="darkblue", mid="white") +
+  scale_x_continuous("Cohort", expand=c(0, 0)) +
+  scale_y_continuous("Age", expand=c(0, 0)) +
+  theme(legend.key.width = unit(2, "cm"))
 
 ### END #######################################
