@@ -135,9 +135,15 @@ ggplot(data=subset(df_coh, region=="Norway" & cohort %in% seq(1950, 2000, by=10)
 ggplot(data=subset(df_coh, region=="Norway")) +
   geom_tile(aes(x=cohort+age, y=age, fill=sx_m/sx_f)) +
   geom_step(data=subset(parity_age_coh, region=="Norway"), aes(x=cohort+parity_age, y=parity_age), colour="black") +
+  geom_abline(intercept=-seq(1950, 2030, by=10), slope=1, linetype="dashed", colour="grey") +
   scale_fill_gradient2(midpoint=1, high="darkred", low="darkblue", mid="white") +
-  scale_x_continuous("Cohort", expand=c(0, 0)) +
-  scale_y_continuous("Age", expand=c(0, 0)) +
+  scale_x_continuous("Cohort", expand=c(0, 0), breaks=seq(1950, 2025, by=10)) +
+  scale_y_continuous("Age", expand=c(0, 0), breaks = seq(0, 80, by=10)) +
   theme(legend.key.width = unit(2, "cm"))
+
+## 2.3 Standardization ---------------------------------------------
+
+
+
 
 ### END #######################################

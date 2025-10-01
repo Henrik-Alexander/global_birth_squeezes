@@ -41,5 +41,23 @@ for (i in seq_along(paths_lt)) {
   
 }
 
+## 2. Load the birth counts ----------------------------------
+
+# Load the birth counts
+path_wpp_births <- "https://population.un.org/wpp/assets/Excel%20Files/1_Indicator%20(Standard)/CSV_FILES/WPP2024_Fertility_by_Age1.csv.gz"
+
+# Temporary file direction
+temp <- tempfile()
+
+# Download the file
+download.file(path_wpp_births, temp, quite = T)
+
+# Load the data
+tmp <- fread(temp)
+
+# Save the file
+fwrite(tmp, file="raw/WPP2024_Fertility_by_Age1.csv")
+rm(tmp)
+file.remove(temp)
 
 ### END ###############################################
