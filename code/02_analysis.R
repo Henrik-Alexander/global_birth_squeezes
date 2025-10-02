@@ -141,9 +141,76 @@ ggplot(data=subset(df_coh, region=="Norway")) +
   scale_y_continuous("Age", expand=c(0, 0), breaks = seq(0, 80, by=10)) +
   theme(legend.key.width = unit(2, "cm"))
 
-## 2.3 Standardization ---------------------------------------------
+# 3. Standardization ---------------------------------------------
 
+# Load the two data sets
+load("data/wpp_pop.Rda")
+load("data/wpp_births.Rda")
 
+# Transform the age variable in the population data
+dt_wpp_pop[, age:=as.numeric(str_remove_all(age, "\\+"))]
+
+# Merge the data
+wpp_standard <- merge(x=wpp_births, y=dt_wpp_pop,
+                      by.x=c("region", "location_code", "year", "age_mother", "n"),
+                      by.y=c("region", "location_code", "year", "age", "n"), 
+                      suffixes=c("_births", "_pop"), all.x = TRUE)
+
+# Estimate the rates
+wpp_standard[, asfr_female:=births/pop_female]
+wpp_standard[, asfr_male:=births/pop_male]
+
+# Estimate the total fertility rates
+wpp_tfr_standard <- wpp_standard[, .(tfr_obs=sum(asfr), tfr_male=sum(asfr_male), tfr_female=sum(asfr_female), asr=sum(pop_male)/sum(pop_female)), by =  .(region, year, location_code, variant_births)]
+
+# Estimate the relative and absolute difference
+wpp_tfr_standard[, abs_diff:=tfr_male-tfr_female]
+wpp_tfr_standard[, rel_diff:=round(100*abs_diff/tfr_female, 2)]
+
+# Merge with location variables
+wpp_tfr_standard <- merge(wpp_tfr_standard, wpp_location, by="region")
+
+# Save the results
+save(wpp_tfr_standard, file="data/wpp_tfr_standard.Rda")
+
+## Estimate the adult age ratio ----------------------------------
+
+# Filter the adult population
+wpp_pop_adult <- dt_wpp_pop[age%in%20:30, ]
+
+# Estimate the adult sex ratio
+wpp_pop_adult <- wpp_pop_adult[, .(pop_male=sum(pop_male), pop_female=sum(pop_female)), by=.(region, location_code, variant, year)]
+
+# Estimate the sex ratio
+wpp_pop_adult[, asr:=pop_male/pop_female]
+
+# Save the data
+save(wpp_pop_adult, file="data/wpp_pop_adult_sr.Rda")
+
+## 3.1. Plot the results -----------------------------------------
+
+# Plot the trend in the absolute difference
+ggplot(data=subset(wpp_tfr_standard, variant_births=="Medium"), aes(x=year, y=rel_diff, colour=sdg_region)) +
+  geom_hline(xintercept=0) +
+  geom_line(aes(group=region)) +
+  geom_smooth(method="loess", se=FALSE) +
+  facet_wrap(~ sdg_region) +
+  coord_cartesian(ylim=c(-20, 20))
+
+# Plot trend in China
+ggplot(data=subset(wpp_tfr_standard, region %in% c("China", "Dem. People's Republic of Korea", "China, Taiwan Province of China" )), aes(x=year, y=rel_diff, colour=variant_births)) +
+  geom_vline(xintercept=2024, linetype="dashed") +
+  geom_hline(yintercept=0) +
+  geom_line(aes(group=variant_births)) +
+  facet_wrap(~ region) +
+  coord_cartesian(ylim=c(-20, 20)) +
+  scale_y_continuous("% difference male to female TFR") +
+  scale_x_continuous("Year", breaks=seq(1950, 21000, by=10), expand=c(0, 0)) +
+  theme(
+    axis.text.x=element_text(angle=45, hjust=1, vjust=1)
+  )
+
+ggsave(filename="results/standard_east_asia_rel.pdf", height=15, width=25,unit="cm")
 
 
 ### END #######################################

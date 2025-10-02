@@ -16,13 +16,28 @@ library(stringr)
 # Load the files
 raw_files <- list.files("raw", full.names=T)
 
+# Clean the population data =====================
+
+# Load the population data
+dt_wpp_pop <- fread("raw/WPP2024_Population1JanuaryBySingleAgeSex_Medium_1950-2023.csv")
+
+# Select the columns
+dt_wpp_pop <- dt_wpp_pop[, c("Variant", "Location", "LocID", "Time", "AgeGrp", "AgeGrpSpan", "PopMale", "PopFemale")]
+
+# Rename the columns
+setnames(dt_wpp_pop, old=names(dt_wpp_pop), new=c("variant", "region", "location_code", "year", "age", "n", "pop_male", "pop_female"))
+
+# Save the data
+save(dt_wpp_pop, file="data/wpp_pop.Rda")
+rm(dt_wpp_pop)
+
 # Clean the SRB =================================
 
 # Load the demographic indicators compats
 dt_wpp_demo <- as.data.table(read_xlsx(raw_files[str_detect(raw_files, "DEMOGRAPHIC_INDICATORS")], skip=16))
 
 # Select the SRB and the location
-dt_wpp_srb <- dt_wpp_demo[, c("Variant", "Region, subregion, country or area *", "Location code", "Year", "Sex Ratio at Birth (males per 100 female births)")]
+dt_wpp_pop <- dt_wpp_pop[, c("Variant", "Location", "LocID", "Time", "AgeGrp", "AgegrpSpan", "PopMale", "PopFemale")]
 
 # Set the names
 setnames(dt_wpp_srb, old=names(dt_wpp_srb), new=c("variant", "region", "location_code", "year", "srb"))
@@ -74,5 +89,20 @@ setnames(wpp_location, old = names(wpp_location), new=c("region", "location_type
 save(wpp_location, file = "data/wpp_location.Rda")
 
 rm(list=ls())
+
+
+# Clean the birth data =========================
+
+# Load the birth counts
+wpp_births <- fread("raw/WPP2024_Fertility_by_Age1.csv")
+
+# Select the most important variables
+wpp_births <- wpp_births[, c("Variant", "Location", "LocID", "Time", "AgeGrp",  "AgeGrpSpan", "ASFR", "Births")]
+
+# Rename the variables
+setnames(wpp_births, old=names(wpp_births), new=c("variant", "region", "location_code", "year", "age_mother", "n", "asfr", "births"))
+
+# Save the data
+save(wpp_births, file="data/wpp_births.Rda")
 
 ### END #########################################
