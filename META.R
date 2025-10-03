@@ -13,15 +13,16 @@ install_packages <- FALSE
 
 # Create the folder structure ==========================
 
-folders <- c("code", "raw", "data", "results", "text", "R.utils")
+folders <- c("code", "raw", "data", "results", "text")
 lapply(folders, function(folder) if(!dir.exists(folder)) dir.create(folder))
 
 
 # Install the packages =================================
 
 if(install_packages) {
-  packages <- c("tidyverse", "data.table")
+  packages <- c("tidyverse", "data.table", "R.utils", "gg3D")
   install.packages(packages)
+  remotes::install_github("AckerDWM/gg3D")
 }
 
 # 
