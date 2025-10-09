@@ -147,8 +147,12 @@ ggplot(data=subset(df_coh, region=="Norway")) +
 load("data/wpp_pop.Rda")
 load("data/wpp_births.Rda")
 
-# Transform the age variable in the population data
-dt_wpp_pop[, age:=as.numeric(str_remove_all(age, "\\+"))]
+# Estimate the wpp TFR for women
+wpp_tfr <- wpp_births[, .(tfr=sum(asfr), births=sum(births)), by=.(region, year, variant, location_code)]
+
+# Save the WPP TFR data
+save(wpp_tfr, file="data/wpp_tfr.Rda")
+rm(wpp_tfr)
 
 # Merge the data
 wpp_standard <- merge(x=wpp_births, y=dt_wpp_pop,

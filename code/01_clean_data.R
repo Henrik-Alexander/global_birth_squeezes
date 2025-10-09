@@ -27,6 +27,9 @@ dt_wpp_pop <- dt_wpp_pop[, c("Variant", "Location", "LocID", "Time", "AgeGrp", "
 # Rename the columns
 setnames(dt_wpp_pop, old=names(dt_wpp_pop), new=c("variant", "region", "location_code", "year", "age", "n", "pop_male", "pop_female"))
 
+# Transform the age variable in the population data
+dt_wpp_pop[, age:=as.numeric(str_remove_all(age, "\\+"))]
+
 # Save the data
 save(dt_wpp_pop, file="data/wpp_pop.Rda")
 rm(dt_wpp_pop)
@@ -87,9 +90,6 @@ setnames(wpp_location, old = names(wpp_location), new=c("region", "location_type
 
 # Save the data
 save(wpp_location, file = "data/wpp_location.Rda")
-
-rm(list=ls())
-
 
 # Clean the birth data =========================
 

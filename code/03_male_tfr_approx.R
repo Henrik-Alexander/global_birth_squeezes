@@ -98,6 +98,12 @@ fert_national <- merge(ccd, wpp_pop_adult, by.x=c("country", "year"), by.y=c("re
 # Combine the national and the subnaitonal data
 fert_global <- rbindlist(list(fert_subnational, fert_national), fill=TRUE)
 
+# Remove unnececary variables
+fert_global <- fert_global[, .(country, year, data, tfr_male, tfr_female, tfr_ratio, asr, males, females)]
+
+# Assign outliers
+fert_global[, outlier:=ifelse(asr>3|asr<0.3, TRUE, FALSE)]
+
 # Plot the resilationship between 
 ggplot(data=fert_global, aes(x=asr, y=tfr_ratio)) +
   geom_hline(yintercept=1, linetype="dashed") +
@@ -129,6 +135,9 @@ summary(model_approximation)
 # Print the r-squared
 summary_model_approximation <- summary(model_approximation)
 
+# Save the model
+save(model_approximation, file="results/model_tfr_approximation.Rda")
+
 # Print the fit statistics
 cat("R-squared=", summary_model_approximation$r.squared, "\n")
 cat("R-square adjuted=", summary_model_approximation$adj.r.squared, "\n")
@@ -145,6 +154,9 @@ if (!all(summary_model_approximation$coefficients[2:3, 4]<0.05)) {
   # Create the equation
   sum(exp(coef(reduced_model)))
 }
+
+# Save the final data set
+save(fert_global, file="data/fert_global_asr.Rda")
 
 # Plot the resilationship between 
 ggplot(data=fert_global, aes(x=tfr_female, y=tfr_male, colour=data)) +
@@ -197,6 +209,9 @@ ggplot(data=fert_global, aes(x=round(asr, 2), y=round(tfr_female, 2), z=round(tf
 }
 
 make_plot(120, 20)
+ggsave(filename="results/3d_tfr_asr_approx.pdf")
 
+
+# Approximation TFR male -------------------------------
 
 ### END #############################################
