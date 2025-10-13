@@ -148,7 +148,7 @@ load("data/wpp_pop.Rda")
 load("data/wpp_births.Rda")
 
 # Estimate the wpp TFR for women
-wpp_tfr <- wpp_births[, .(tfr=sum(asfr), births=sum(births)), by=.(region, year, variant, location_code)]
+wpp_tfr <- wpp_births[, .(tfr=sum(asfr/1000), births=sum(births)), by=.(region, year, variant, location_code)]
 
 # Save the WPP TFR data
 save(wpp_tfr, file="data/wpp_tfr.Rda")

@@ -11,7 +11,8 @@ rm(list=ls()); gc(TRUE)
 library(data.table)
 library(ggplot2)
 library(stringr)
-library(gg3D)
+library(tidyverse)
+#library(gg3D)
 
 # Load the graphical scheme
 source("code/graphics.R")
@@ -123,8 +124,13 @@ ggplot(data=fert_global, aes(x=asr, y=tfr_ratio)) +
 # SAvew the data
 ggsave("results/global_tfr_adult_sr.pdf", height=25, width=20, unit="cm")
 
+# Create the log data
+fert_global[, log_tfr_male:=log(tfr_male)]
+fert_global[, log_tfr_female:=log(tfr_female)]
+fert_global[, log_asr:=log(asr)]
+
 # Estimate the regression model
-model_approximation <- lm(log(tfr_male)~log(tfr_female) + log(asr), data=fert_global)
+model_approximation <- lm(log_tfr_male~log_tfr_female + log_asr, data=fert_global)
 
 # Look at the model fit
 plot(model_approximation)
@@ -191,27 +197,145 @@ ggplot(data=fert_global, aes(x=asr, y=tfr_male, colour=data)) +
   )
 ggsave(filename = "results/male_fertility_approx_asr.pdf", height=20, width=20, unit="cm")
 
+# 
+# # Make a 3D ggplot
+# make_plot <- function(theta=0, phi=0) {
+# ggplot(data=fert_global, aes(x=round(asr, 2), y=round(tfr_female, 2), z=round(tfr_male, 2), colour=data, shape=data)) +
+#   axes_3D(theta=theta, phi=phi) +
+#   stat_3D(theta=theta, phi=phi, alpha=0.5) +
+#   axis_labs_3D(theta=theta, phi=phi) +
+#   labs_3D(theta=theta, phi=phi, 
+#           labs=c("Sex ratio(20-39)", "TFR female", "TFR male"), 
+#           angle=c(0,0,90),
+#           hjust=c(0,2,2), 
+#           vjust=c(2,2,-2)) +
+#   ggtitle("Approximation of male TFR") +
+#   theme_void() +
+#   theme(legend.position = "right")
+# }
 
-# Make a 3D ggplot
-make_plot <- function(theta=0, phi=0) {
-ggplot(data=fert_global, aes(x=round(asr, 2), y=round(tfr_female, 2), z=round(tfr_male, 2), colour=data, shape=data)) +
-  axes_3D(theta=theta, phi=phi) +
-  stat_3D(theta=theta, phi=phi, alpha=0.5) +
-  axis_labs_3D(theta=theta, phi=phi) +
-  labs_3D(theta=theta, phi=phi, 
-          labs=c("Sex ratio(20-39)", "TFR female", "TFR male"), 
-          angle=c(0,0,90),
-          hjust=c(0,2,2), 
-          vjust=c(2,2,-2)) +
-  ggtitle("Approximation of male TFR") +
-  theme_void() +
-  theme(legend.position = "right")
+#make_plot(120, 20)
+#ggsave(filename="results/3d_tfr_asr_approx.pdf")
+
+
+# 3. Approximation TFR male ============================
+
+# Load the world tfr
+load("data/wpp_tfr.Rda")
+load("data/wpp_pop_adult_sr.Rda")
+
+# Merge the TFR and the adult sex ratio
+wpp_tfr_pop <- merge(x=wpp_tfr, y=wpp_pop_adult, by=c("region", "location_code", "year"),
+                     suffixes = c("_tfr", "_pop"))
+
+# Rename the TFR variable
+wpp_tfr_pop[, log_tfr_female:=log(tfr)]
+wpp_tfr_pop[, log_asr:=log(asr)]
+
+# Predict the data
+tfr_prediction <- predict(model_approximation, wpp_tfr_pop, se.fit=TRUE, interval="prediction")
+
+# Attach the prediction to the orginal data
+wpp_tfr_pop <- bind_cols(wpp_tfr_pop, exp(tfr_prediction$fit))
+
+# Estiamte the relative difference
+wpp_tfr_pop[, tfr_diff:=(fit-tfr)/tfr]  
+wpp_tfr_pop[, tfr_diff_upr:=(upr-tfr)/tfr]
+wpp_tfr_pop[, tfr_diff_lwr:=(lwr-tfr)/tfr]
+
+# Save the data
+save(wpp_tfr_pop, file="data/wpp_male_tfr_prediction.Rda")
+
+## 3.2 Plot the approximations ------------------------
+
+# Plot for the world
+plot_male_tfr <- function(country) {
+  plt_tmp <- ggplot(data=subset(wpp_tfr_pop, region==country & variant_tfr=="Medium"), aes(x=year)) +
+    geom_vline(xintercept=2023, linetype="dotted") +
+    geom_ribbon(aes(ymin=lwr, ymax=upr), alpha=0.3, fill="darkblue") +
+    geom_line(aes(y=fit, colour="Male TFR"), lwd=1.2) +
+    geom_line(aes(y=tfr, colour="Female TFR"), lwd=1.2) +
+    scale_x_continuous("Year", expand=c(0, 0), breaks=seq(1950, 2100, by=10)) +
+    scale_y_continuous("Total Fertility Rate", n.breaks=10) +
+    scale_colour_manual("", values=c("darkred", "darkblue")) +
+    ggtitle(paste("Mmale TFR to female TFR in", country))
+  
+    
+  ggsave(plt_tmp, filename=paste0("results/regress_approx/reg_app_tfr_", country, ".pdf"), height=10, width=15, unit="cm")
+  
+  
+  #return(plt_tmp)
 }
 
-make_plot(120, 20)
-ggsave(filename="results/3d_tfr_asr_approx.pdf")
+# Plot the data for France
+plot_male_tfr("France")
+
+# Plot the relative difference
+plot_rel_diff <- function(country) {
+  plt_tmp <- ggplot(data=subset(wpp_tfr_pop, region==country & variant_tfr=="Medium"), aes(x=year)) +
+    geom_hline(yintercept=0) +
+    geom_vline(xintercept=2023, linetype="dotted") +
+    geom_ribbon(aes(ymin=tfr_diff_lwr, ymax=tfr_diff_upr), alpha=0.3) +
+    geom_line(aes(y=tfr_diff), lwd=1.2) +
+    scale_x_continuous("Year", expand=c(0, 0), breaks=seq(1950, 2100, by=10)) +
+    scale_y_continuous("Difference TFR men to TFR women", n.breaks=10, labels = scales::percent) +
+    ggtitle(paste("Relative difference of male TFR to female TFR in", country))
+  
+  ggsave(plt_tmp, filename=paste0("results/regress_approx/rel_diff_reg_app", country, ".pdf"), height=10, width=15, unit="cm")
+         
+     # return(plt_tmp)
+}
+
+# Make all the plots
+for(region in unique(wpp_tfr_pop$region)) {
+  
+  cat("Region:", region, "\n")
+  plot_male_tfr(region)
+  plot_rel_diff(region)
+}
+
+# Estimate the cross-overs
+wpp_tfr_pop <- wpp_tfr_pop[order(region, variant_tfr,  year), ]
+wpp_tfr_pop[, cross_over:= ifelse(lag(tfr)<lag(fit)&tfr>fit, 1, 0), by=region]
+
+# Merge with the location data
+wpp_tfr_pop <- merge(wpp_tfr_pop, wpp_location, by="region")
+
+# Plot the line with the cross-overs
+ggplot(subset(wpp_tfr_pop, variant_tfr=="Medium"&location_type=="Country/Area"), aes(x=year, y=fit/tfr, group=region, colour=sdg_region)) +
+  geom_line() +
+  geom_vline(xintercept=2023, linetype="dotted") +
+  geom_point(data=subset(wpp_tfr_pop, cross_over==1&variant_tfr=="Medium"&location_type=="Country/Area"), aes(x=year-0.5, y=1), colour="black") +
+  geom_hline(yintercept=1) +
+  scale_x_continuous("Year", seq(1950, 2100, by=10), expand=c(0, 0)) +
+  scale_y_continuous("TFR ratio", trans="log10", n.breaks=10) +
+  facet_wrap(~sdg_region, scales="free_y") +
+  theme(legend.title=element_blank())
+ggsave(filename="results/tfr_ratio_crossover.pdf", height=20, width=25,unit="cm")
 
 
-# Approximation TFR male -------------------------------
+# Plot the crossovers
+ggplot(data=subset(wpp_tfr_pop, cross_over==1&variant_tfr=="Medium"&location_type=="Country/Area"), aes(x=fct_reorder(region, year), y=year, colour=sdg_region)) +
+  geom_hline(yintercept=2023) +
+  geom_point() +
+  coord_flip() +
+  scale_y_continuous("Year", breaks=seq(1950, 2100, by=10), expand=c(0, 0)) + 
+  theme(
+    axis.ticks.y = element_blank(),
+    axis.title.y = element_blank(),
+    legend.title=element_blank()
+  )
+ggsave(filename="results/tfr_ratio_crossovers_country.pdf", height=50, width=25, unit="cm")
+
+
+# Plot the cross-overse
+ggplot(data=subset(wpp_tfr_pop, cross_over==1&variant_tfr=="Medium"&location_type=="Country/Area"), aes(x=year, fill=sdg_region)) +
+  geom_vline(xintercept=2023) +
+  geom_histogram(bins=50, colour="white") +
+  scale_x_continuous("Year", breaks=seq(1950, 2100, by=10)) + 
+  scale_y_continuous(expand=c(0, 0)) +
+  facet_wrap(~sdg_region) +
+  theme(legend.title=element_blank())
+ggsave(filename="results/tfr_ratio_crossover_timing_sdg_regions.pdf", height=20, width=30, unit="cm")
 
 ### END #############################################

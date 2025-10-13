@@ -3,6 +3,10 @@
 *.csv
 *.pdf
 *.html
+*.log
+*.docx
+*.svg
+*.Rda
 
 # Directories
 data/
