@@ -23,6 +23,15 @@ load("data/wpp_pop_adult_sr.Rda")
 # Load the wpp locations
 load("data/wpp_location.Rda")
 
+# Functions =========================================
+
+rmsd <- function(pred, obs) {
+  if(length(pred)!=length(obs)) stop("Input vectors must have the same length!")
+  
+  sqrt(sum((obs-pred)^2) / length(pred))
+  
+}
+
 # Load and prepare data =============================
 
 # Create the female, male TFR and adult population sex ratio data
@@ -94,6 +103,9 @@ ccd$country[ccd$county== "Yugoslavia" ] <-  "Yugoslavia"
 # Merge the country TFR with the wpp adult population
 fert_national <- merge(ccd, wpp_pop_adult, by.x=c("country", "year"), by.y=c("region", "year"))
 
+
+
+
 # Estimate the regression model =====================
 
 # Combine the national and the subnaitonal data
@@ -121,6 +133,7 @@ ggplot(data=fert_global, aes(x=asr, y=tfr_ratio)) +
   theme(
     axis.text.x=element_text(angle=45, hjust=1, vjust=1)
   )
+
 # SAvew the data
 ggsave("results/global_tfr_adult_sr.pdf", height=25, width=20, unit="cm")
 
@@ -243,10 +256,92 @@ wpp_tfr_pop[, tfr_diff:=(fit-tfr)/tfr]
 wpp_tfr_pop[, tfr_diff_upr:=(upr-tfr)/tfr]
 wpp_tfr_pop[, tfr_diff_lwr:=(lwr-tfr)/tfr]
 
+# Estimate the cross-overs
+wpp_tfr_pop <- wpp_tfr_pop[order(region, variant_tfr,  year), ]
+wpp_tfr_pop[, cross_over:= ifelse(lag(tfr)<lag(fit)&tfr>fit, 1, 0), by=region]
+
+# Merge with the location data
+wpp_tfr_pop <- merge(wpp_tfr_pop, wpp_location, by="region")
+
+# Clean the sdg region label
+wpp_tfr_pop$sdg_region <- str_remove(wpp_tfr_pop$sdg_region, "\\(.+\\)")
+
 # Save the data
 save(wpp_tfr_pop, file="data/wpp_male_tfr_prediction.Rda")
 
+# Estimate the numbers
+wpp_tfr_pop[year%in% c(1950, 2025, 2100) & location_type=="Country/Area" & variant_tfr=="Medium", .(higher_men=mean(ifelse(tfr_diff>0, 1, 0))), by=year]
+
+# Range of the difference
+wpp_tfr_pop[location_type=="Country/Area" & variant_tfr=="Medium", .(range=100*range(tfr_diff))]
+
+
 ## 3.2 Plot the approximations ------------------------
+
+
+
+
+# Plot the relative difference
+ggplot(subset(wpp_tfr_pop, location_type=="Country/Area" & variant_tfr=="Medium"), aes(x=year, group=region, colour=sdg_region)) +
+  geom_hline(yintercept=0) +
+  geom_line(aes(y=tfr_diff)) +
+  scale_x_continuous("Year", n.breaks=10, expand=c(0, 0)) +
+  scale_y_continuous("Relative TFR difference (TFR men - TFR women)", n.breaks=10, expand=c(0, 0), labels=scales::percent) +
+  facet_wrap(~sdg_region) +
+  guides(colour="none")
+ggsave(filename="results/tfr_rel_difference_panel.pdf", height=20, width=20, unit="cm")
+
+# Plot the relative difference
+ggplot(subset(wpp_tfr_pop, region %in% c("China", "Republic of Korea", "India" ) & variant_tfr=="Medium"), aes(x=year, group=region, colour=region)) +
+  geom_vline(data=subset(wpp_tfr_pop, region %in% c("China", "Republic of Korea", "India" ) & variant_tfr=="Medium" & cross_over==1), aes(xintercept=year, colour=region)) +
+  geom_ribbon(aes(ymin=0, ymax=tfr_diff, fill=region), alpha=0.5) +
+  geom_hline(yintercept=0) +
+  geom_line(aes(y=tfr_diff)) +
+  scale_x_continuous("Year", n.breaks=10, expand=c(0, 0)) +
+  scale_y_continuous("Relative TFR difference (TFR men - TFR women)", n.breaks=15, expand=c(0, 0), labels=scales::percent) +
+  facet_wrap(~region) +
+  theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1))+
+  scale_fill_viridis_d(option="D") +
+  scale_colour_viridis_d(option="D") + 
+  guides(colour="none", fill="none")
+ggsave(filename="results/tfr_rel_difference_asia.pdf", height=20, width=20, unit="cm")
+
+# Plot sdg regions
+plot_sdg_rel <- function(sdg_reg, df=wpp_tfr_pop) {
+  df <- subset(df, variant_tfr=="Medium" & sdg_region==sdg_reg)
+  plot_sdg <- ggplot(data=df, aes(x=year, group=region)) +
+  geom_vline(data=subset(df, cross_over==1), aes(xintercept=year, colour=region)) +
+  geom_ribbon(aes(ymin=0, ymax=tfr_diff, fill=region, colour=region), alpha=0.3) +
+  geom_hline(yintercept=0) +
+  geom_line(aes(y=tfr_diff, colour=region)) +
+  scale_x_continuous("Year", n.breaks=10, expand=c(0, 0)) +
+  scale_y_continuous("Relative TFR difference (TFR men - TFR women)", n.breaks=10, expand=c(0, 0), labels=scales::percent) +
+  facet_wrap(~region) +
+  scale_fill_viridis_d(option="D") +
+  scale_colour_viridis_d(option="D") + 
+  guides(colour="none", fill="none") +
+  theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1))
+    
+  ggsave(plot_sdg, filename=paste0("results/sdg_reg_tfr_diff_", sdg_reg, ".pdf"), height=25, width=25, unit="cm")
+  return(plot_sdg)
+}
+
+lapply(unique(wpp_tfr_pop$sdg_region), plot_sdg_rel)
+
+
+# Plot the TFR to the female TFR
+ggplot(subset(wpp_tfr_pop, location_type=="Country/Area" & year %in% c(1950, 2025, 2100)), aes(x=tfr, y=fit, colour=sdg_region)) +
+  geom_abline(slope=1, intercept=0) +
+  #geom_line(aes(group=region),alpha=0.5, aes(group=region)) +
+  geom_point(alpha=0.3) +
+  #geom_linerange(aes(ymin=lwr, ymax=upr), alpha=0.5) +
+  scale_x_continuous("TFR women", n.breaks=10, expand=c(0, 0)) +
+  scale_y_continuous("TFR men", n.breaks=10, expand=c(0, 0)) +
+  scale_colour_viridis_d("",option="D") +
+  facet_wrap(~ year, ncol=1)  +
+  guides(colour=guide_legend(ncol=2))
+ggsave(filename="results/tfr_male_female_difference.pdf", height=25, width=15, unit="cm")
+
 
 # Plot for the world
 plot_male_tfr <- function(country) {
@@ -281,7 +376,7 @@ plot_rel_diff <- function(country) {
     scale_y_continuous("Difference TFR men to TFR women", n.breaks=10, labels = scales::percent) +
     ggtitle(paste("Relative difference of male TFR to female TFR in", country))
   
-  ggsave(plt_tmp, filename=paste0("results/regress_approx/rel_diff_reg_app", country, ".pdf"), height=10, width=15, unit="cm")
+  ggsave(plt_tmp, filename=paste0("results/regress_approx/rel_diff_reg_app", country, ".pdf"), height=15, width=15, unit="cm")
          
      # return(plt_tmp)
 }
@@ -294,24 +389,20 @@ for(region in unique(wpp_tfr_pop$region)) {
   plot_rel_diff(region)
 }
 
-# Estimate the cross-overs
-wpp_tfr_pop <- wpp_tfr_pop[order(region, variant_tfr,  year), ]
-wpp_tfr_pop[, cross_over:= ifelse(lag(tfr)<lag(fit)&tfr>fit, 1, 0), by=region]
-
-# Merge with the location data
-wpp_tfr_pop <- merge(wpp_tfr_pop, wpp_location, by="region")
+### 3.3. Cross-overs -------------------------------------
 
 # Plot the line with the cross-overs
 ggplot(subset(wpp_tfr_pop, variant_tfr=="Medium"&location_type=="Country/Area"), aes(x=year, y=fit/tfr, group=region, colour=sdg_region)) +
-  geom_line() +
-  geom_vline(xintercept=2023, linetype="dotted") +
-  geom_point(data=subset(wpp_tfr_pop, cross_over==1&variant_tfr=="Medium"&location_type=="Country/Area"), aes(x=year-0.5, y=1), colour="black") +
+  geom_line(alpha=0.3) +
   geom_hline(yintercept=1) +
-  scale_x_continuous("Year", seq(1950, 2100, by=10), expand=c(0, 0)) +
+  geom_vline(xintercept=2023, linetype="dotted") +
+  geom_point(data=subset(wpp_tfr_pop, cross_over==1&variant_tfr=="Medium"&location_type=="Country/Area"), aes(x=year-0.5, y=1),  size=1) +
+  scale_x_continuous("Year", seq(1950, 2100, by=25), expand=c(0, 0)) +
   scale_y_continuous("TFR ratio", trans="log10", n.breaks=10) +
   facet_wrap(~sdg_region, scales="free_y") +
-  theme(legend.title=element_blank())
-ggsave(filename="results/tfr_ratio_crossover.pdf", height=20, width=25,unit="cm")
+  theme(legend.title=element_blank(),
+        axis.text.x=element_text(angle=45, vjust=1, hjust=1))
+ggsave(filename="results/tfr_ratio_crossover.pdf", height=25, width=35,unit="cm")
 
 
 # Plot the crossovers
@@ -329,13 +420,54 @@ ggsave(filename="results/tfr_ratio_crossovers_country.pdf", height=50, width=25,
 
 
 # Plot the cross-overse
-ggplot(data=subset(wpp_tfr_pop, cross_over==1&variant_tfr=="Medium"&location_type=="Country/Area"), aes(x=year, fill=sdg_region)) +
+ggplot(data=subset(wpp_tfr_pop, cross_over==1&variant_tfr=="Medium"&location_type=="Country/Area"), aes(x=year, fill=sdg_region, colour=sdg_region)) +
   geom_vline(xintercept=2023) +
-  geom_histogram(bins=50, colour="white") +
-  scale_x_continuous("Year", breaks=seq(1950, 2100, by=10)) + 
-  scale_y_continuous(expand=c(0, 0)) +
+  geom_density(bins=50, alpha=0.5) +
+  scale_x_continuous("Year", breaks=seq(1950, 2100, by=10), limits=c(1950, 2100), expand=c(0, 0)) + 
+  scale_y_continuous(expand=c(0, 0), n.breaks=10) +
   facet_wrap(~sdg_region) +
-  theme(legend.title=element_blank())
+  scale_fill_viridis_d(option="D") +
+  scale_colour_viridis_d(option="D") +
+  theme(legend.title=element_blank(),
+        axis.text.x=element_text(angle=45, vjust=1, hjust=1)) +
+  guides(fill="none", colour="none")
 ggsave(filename="results/tfr_ratio_crossover_timing_sdg_regions.pdf", height=20, width=30, unit="cm")
+
+
+
+### 3.3 Out of sample validation ----------------------
+
+# Load the male national fertility database
+load("data/fert_global_asr.Rda")
+
+# Merge the male fertility database
+validation <- merge(fert_global[data=="Human Fertility Collection", ], wpp_tfr_pop[variant_tfr=="Medium"], by.x=c("country", "year"), by.y=c("region", "year"), suffixes = c("_obs", "_pred"))
+
+# Estimate the error
+validation[, error:=tfr_male-fit]
+
+# Plot the data
+ggplot(data=validation, aes(x=tfr_male, colour=country)) +
+  geom_abline(slope=1, intercept=0) +
+  geom_point(aes(y=fit)) +
+  geom_linerange(aes(ymin=lwr, ymax=upr), alpha=0.3) +
+  scale_x_continuous("TFR men observed", n.breaks=10, expand=c(0, 0)) +
+  scale_y_continuous("TFR men predicted", n.breaks=10, expand=c(0, 0)) +
+  guides(colour=guide_legend(nrow=2))
+ggsave(filename="results/out_of_sample_validation.pdf", height=15, width=15, unit="cm")
+
+# Plot the error distribution
+ggplot(data=validation, aes(x=error)) + 
+  geom_vline(xintercept=0) + 
+  geom_histogram(bins = 40, colour="white") +
+  scale_x_continuous("Prediction error (observed-predicted)", n.breaks=10, expand=c(0, 0)) +
+  scale_y_continuous(expand=c(0, 0), n.breaks=10)
+ggsave(filename="results/out_of_sample_validation_error.pdf", height=15, width=15, unit="cm")
+
+# Prediction intervals calibartion
+validation[, calibrated:=ifelse(lwr<tfr_male & upr>tfr_male, 1, 0)]
+
+# Estimate the RMSD
+(rmds <- rmsd(pred=validation$fit, obs=validation$tfr_male))
 
 ### END #############################################
