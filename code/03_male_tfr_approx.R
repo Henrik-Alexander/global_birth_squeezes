@@ -151,8 +151,22 @@ plot(model_approximation)
 # Look at the model result
 summary(model_approximation)
 
+# Create the regression table
+stargazer(model_approximation, 
+          type="latex",
+          dep.var.labels = "log TFR men",
+          covariate.labels = c("log TFR women", "log SR (20-39)", "Intercept"),
+          ci=T, keep.stat=c("n", "rsq", "adj.rsq"))
+
 # Print the r-squared
 summary_model_approximation <- summary(model_approximation)
+
+# Make the examples
+prediction_examples <- expand.grid("log_tfr_female"=log(c(1, 2.1, 3, 5)),
+                                   "log_asr" = log(c(0.5, 1, 2)))
+prediction_examples$prediction <- predict(model_approximation, prediction_examples)
+prediction_examples <- exp(prediction_examples)
+
 
 # Save the model
 save(model_approximation, file="results/model_tfr_approximation.Rda")
@@ -275,11 +289,31 @@ wpp_tfr_pop[year%in% c(1950, 2025, 2100) & location_type=="Country/Area" & varia
 # Range of the difference
 wpp_tfr_pop[location_type=="Country/Area" & variant_tfr=="Medium", .(range=100*range(tfr_diff))]
 
+# Estimate the share of higher countries
+wpp_tfr_pop[, male_birth_squeeze:=ifelse(tfr_diff>0, 1, 0)]
+wpp_tfr_pop[variant_tfr=="Medium"&location_type=="Country/Area", .(.N) , by=.(year, male_birth_squeeze)] |> 
+  ggplot(aes(x=year, y=N, fill=factor(male_birth_squeeze))) + 
+  geom_col() +
+  geom_vline(xintercept = 2024) +
+  scale_fill_viridis_d("", option="D", labels=c("Higher female TFR", "Higher male TFR")) +
+  scale_x_continuous("Year", breaks = seq(1950, 2100, by=10), expand = c(0, 0)) +
+  scale_y_continuous("Number of countries", expand=c(0, 0), n.breaks=10) 
+ggsave(filename="results/n_countries_birth_squeeze.pdf", height=15, width=25, unit="cm")  
+
+# Plot the relative differences
+ggplot(wpp_tfr_pop, aes(x=year, y=tfr_diff, group=year, colour=year)) + 
+  geom_hline(yintercept=0) + 
+  geom_boxplot() +
+  scale_colour_viridis_c(option = "D") +
+  scale_x_continuous("Year", breaks = seq(1950, 2100, by=10), expand = c(0, 0)) +
+  scale_y_continuous("Relative difference (female TFR - male TFR)", expand=c(0, 0), n.breaks=10, labels=scales::percent) +
+  guides(colour="none")
+ggsave(filename="results/distr_relative_difference_tfr.pdf", height=15, width = 35, unit="cm")
+
+unique(wpp_tfr_pop$year[wpp_tfr_pop$tfr_diff > 1])
+
 
 ## 3.2 Plot the approximations ------------------------
-
-
-
 
 # Plot the relative difference
 ggplot(subset(wpp_tfr_pop, location_type=="Country/Area" & variant_tfr=="Medium"), aes(x=year, group=region, colour=sdg_region)) +
