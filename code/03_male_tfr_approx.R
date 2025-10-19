@@ -338,7 +338,7 @@ ggplot(subset(wpp_tfr_pop, region %in% c("China", "Republic of Korea", "India" )
   scale_fill_viridis_d(option="D") +
   scale_colour_viridis_d(option="D") + 
   guides(colour="none", fill="none")
-ggsave(filename="results/tfr_rel_difference_asia.pdf", height=20, width=20, unit="cm")
+ggsave(filename="results/tfr_rel_difference_asia.pdf", height=10, width=20, unit="cm")
 
 # Plot sdg regions
 plot_sdg_rel <- function(sdg_reg, df=wpp_tfr_pop) {

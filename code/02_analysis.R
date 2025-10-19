@@ -65,7 +65,7 @@ ggsave(filename="results/parity_age_asian_examples.pdf", height=15, width=25, un
 ggplot(data=subset(df, region %in% c("China", "Republic of Korea", "China, Taiwan Province of China" )), aes(x=age, y=sx_m/sx_f)) +
   geom_hline(yintercept = 1) +
   geom_line(aes(group=year), colour="grey", linewidth=0.2) +
-  geom_line(data=subset(df, year %in% seq(1950, 2023, by=10) & region %in% c("China", "Republic of Korea", "China, Taiwan Province of China" )), aes(x=age, y=sx_m/sx_f, colour=factor(year), group=year), linewidth=1.4) +
+  geom_line(data=subset(df, year %in% c(1950, 1975, 2000, 2020) & region %in% c("China", "Republic of Korea", "China, Taiwan Province of China" )), aes(x=age, y=sx_m/sx_f, colour=factor(year), group=year), linewidth=1.4) +
   scale_x_continuous("Age", expand=c(0, 0), breaks=seq(0, 100, by=10)) +
   scale_y_continuous("Sex ratio of life table survivors accounting for SRB", breaks=seq(0, 2, by=0.1), expand=c(0, 0)) +
   scale_colour_viridis_d("Year") +
