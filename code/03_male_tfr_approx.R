@@ -313,6 +313,10 @@ ggsave(filename="results/distr_relative_difference_tfr.pdf", height=15, width = 
 unique(wpp_tfr_pop$year[wpp_tfr_pop$tfr_diff > 1])
 
 
+# Fint the maximum and minimum tfr difference
+wpp_tfr_pop[tfr_diff< -0.733]
+
+
 ## 3.2 Plot the approximations ------------------------
 
 # Plot the relative difference
@@ -364,18 +368,17 @@ lapply(unique(wpp_tfr_pop$sdg_region), plot_sdg_rel)
 
 
 # Plot the TFR to the female TFR
-ggplot(subset(wpp_tfr_pop, location_type=="Country/Area" & year %in% c(1950, 2025, 2100)), aes(x=tfr, y=fit, colour=sdg_region)) +
+ggplot(subset(wpp_tfr_pop, location_type=="Country/Area" & year %in% c(1950, 2025, 2050, 2100)), aes(x=tfr, y=fit, colour=sdg_region)) +
   geom_abline(slope=1, intercept=0) +
   #geom_line(aes(group=region),alpha=0.5, aes(group=region)) +
-  geom_point(alpha=0.3) +
+  geom_point(alpha=0.4) +
   #geom_linerange(aes(ymin=lwr, ymax=upr), alpha=0.5) +
-  scale_x_continuous("TFR women", n.breaks=10, expand=c(0, 0)) +
-  scale_y_continuous("TFR men", n.breaks=10, expand=c(0, 0)) +
+  scale_x_continuous("TFR women", breaks=1:10, expand=c(0, 0)) +
+  scale_y_continuous("TFR men", breaks=1:10, expand=c(0, 0)) +
   scale_colour_viridis_d("",option="D") +
-  facet_wrap(~ year, ncol=1)  +
-  guides(colour=guide_legend(ncol=2))
+  facet_wrap(~ year, ncol=1, scales="free")  +
+  guides(colour=guide_legend(ncol=2, override.aes=list(alpha=1)))
 ggsave(filename="results/tfr_male_female_difference.pdf", height=25, width=15, unit="cm")
-
 
 # Plot for the world
 plot_male_tfr <- function(country) {

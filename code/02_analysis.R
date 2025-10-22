@@ -51,7 +51,7 @@ ggplot(data=parity_age, aes(x=year, y=parity_age)) +
 ggsave(filename="results/parity_age_globally.pdf", height=20, width=25, unit="cm")
 
 # Plot China and Taiwan
-ggplot(data=subset(parity_age, region %in% c("China", "Republic of Korea", "China, Taiwan Province of China" )), aes(x=year, y=parity_age)) +
+ggplot(data=subset(parity_age, region %in% c("China", "Republic of Korea", "China, Taiwan Province of China", "Cambodia", "Rwanda", "Guatemala")), aes(x=year, y=parity_age)) +
   geom_line(aes(group=region, colour=region), linewidth=2) +
   scale_x_continuous("Year", expand=c(0, 0), breaks=seq(1950, 2030, by=10)) +
   scale_y_continuous("Parity age", breaks=seq(0, 100, by=10)) +
@@ -60,19 +60,22 @@ ggplot(data=subset(parity_age, region %in% c("China", "Republic of Korea", "Chin
        caption="Source: author's calculation using WPP 2024.")
 ggsave(filename="results/parity_age_asian_examples.pdf", height=15, width=25, unit="cm")
 
+# Estimate the aggregate
+df_aggregate <- df[region %in% c("China", "Republic of Korea", "China, Taiwan Province of China", "Cambodia", "Rwanda", "Guatemala"), .(sx_m=mean(sx_m, na.rm=T), sx_f=mean(sx_f, na.rm=T)), by=.(region, age)]
 
 # Plot China and Taiwan
-ggplot(data=subset(df, region %in% c("China", "Republic of Korea", "China, Taiwan Province of China" )), aes(x=age, y=sx_m/sx_f)) +
+ggplot(data=subset(df, region %in% c("China", "Republic of Korea", "China, Taiwan Province of China", "Cambodia", "Rwanda", "Guatemala")), aes(x=age, y=sx_m/sx_f)) +
   geom_hline(yintercept = 1) +
-  geom_line(aes(group=year), colour="grey", linewidth=0.2) +
-  geom_line(data=subset(df, year %in% c(1950, 1975, 2000, 2020) & region %in% c("China", "Republic of Korea", "China, Taiwan Province of China" )), aes(x=age, y=sx_m/sx_f, colour=factor(year), group=year), linewidth=1.4) +
+  geom_line(aes(group=year), colour="grey", alpha=0.3, linewidth=0.2) +
+  geom_line(data=subset(df, year %in% c(1950, 1970, 1995, 2020) & region %in% c("China", "Republic of Korea", "China, Taiwan Province of China", "Cambodia", "Rwanda", "Guatemala")), aes(x=age, y=sx_m/sx_f, colour=factor(year), group=year), linewidth=1.4) +
+  geom_line(data=df_aggregate, aes(x=age, y=sx_m/sx_f, colour="average"), linewidth=1.3, colour="black", linetype="dotted") + 
   scale_x_continuous("Age", expand=c(0, 0), breaks=seq(0, 100, by=10)) +
   scale_y_continuous("Sex ratio of life table survivors accounting for SRB", breaks=seq(0, 2, by=0.1), expand=c(0, 0)) +
   scale_colour_viridis_d("Year") +
-  facet_wrap(~ region) +
+  facet_wrap(~ region, ncol=2) +
   labs(subtitle="Sex ratio of a synthetic cohort reflecting sex-specific mortality and sex ratio at birth.",
        caption="Source: author's calculation using WPP 2024.")
-ggsave(filename="results/lifetable_sr_asian_examples.pdf", height=15, width=25, unit="cm")
+ggsave(filename="results/lifetable_sr_asian_examples.pdf", height=25, width=20, unit="cm")
 
 ## Cohort perspective ===========================
 
@@ -194,27 +197,67 @@ save(wpp_pop_adult, file="data/wpp_pop_adult_sr.Rda")
 ## 3.1. Plot the results -----------------------------------------
 
 # Plot the trend in the absolute difference
-ggplot(data=subset(wpp_tfr_standard, variant_births=="Medium"), aes(x=year, y=rel_diff, colour=sdg_region)) +
-  geom_hline(xintercept=0) +
-  geom_line(aes(group=region)) +
-  geom_smooth(method="loess", se=FALSE) +
+ggplot(data=subset(wpp_tfr_standard, variant_births=="Medium" & sdg_region!=""), aes(x=year, y=rel_diff/100, colour=sdg_region)) +
+  geom_hline(yintercept=0) +
+  geom_vline(xintercept=2024, linetype="dashed") +
+  geom_line(aes(group=region), alpha=0.4) +
+  #geom_smooth(method="loess", se=FALSE) +
   facet_wrap(~ sdg_region) +
-  coord_cartesian(ylim=c(-20, 20))
+  scale_y_continuous("TFR Difference", expand=c(0, 0), limits=c(-0.5, 1), labels=scales::percent) +
+  scale_x_continuous("Year", expand=c(0, 0), breaks=seq(1950, 2100, by=25)) +
+  guides(colour=guide_legend(ncol=2)) +
+  theme(axis.text.x = element_text(angle=45, hjust=1, vjust=1),
+        legend.title=element_blank())
+ggsave(filename="results/standardization_rel_diff_time_trend.pdf", height=20, width=25, unit="cm")  
 
 # Plot trend in China
-ggplot(data=subset(wpp_tfr_standard, region %in% c("China", "Dem. People's Republic of Korea", "China, Taiwan Province of China" )), aes(x=year, y=rel_diff, colour=variant_births)) +
+ggplot(data=subset(wpp_tfr_standard, region %in% c("China", "Republic of Korea", "China, Taiwan Province of China" )&variant_births=="Medium"), aes(x=year, y=rel_diff/100, colour=region)) +
   geom_vline(xintercept=2024, linetype="dashed") +
   geom_hline(yintercept=0) +
+  geom_point() +
   geom_line(aes(group=variant_births)) +
   facet_wrap(~ region) +
-  coord_cartesian(ylim=c(-20, 20)) +
-  scale_y_continuous("% difference male to female TFR") +
-  scale_x_continuous("Year", breaks=seq(1950, 21000, by=10), expand=c(0, 0)) +
+  scale_y_continuous("% difference male to female TFR", n.breaks=8, labels=scales::percent) +
+  scale_x_continuous("Year", breaks=seq(1950, 2100, by=25), expand=c(0, 0)) +
   theme(
     axis.text.x=element_text(angle=45, hjust=1, vjust=1)
   )
 
 ggsave(filename="results/standard_east_asia_rel.pdf", height=15, width=25,unit="cm")
 
+
+ggplot(data=subset(wpp_tfr_standard, location_type=="Country/Area" &variant_births=="Medium"&year%in%seq(1950, 2100, by=50)), aes(x=rel_diff/100, fill=as.factor(sdg_region))) +
+  geom_vline(xintercept=0, linetype="solid") +
+  geom_histogram(bins=50, colour="white") +
+  facet_wrap(~ year) +
+  scale_x_continuous("% difference male to female TFR", n.breaks=8, labels=scales::percent) +
+  scale_y_continuous("Count", expand=c(0, 0)) +
+  guides(fill=guide_legend(ncol=2)) +
+  theme(legend.title=element_blank())
+ggsave(filename="results/standard_distribution_time.pdf", height=15, width=25,unit="cm")
+
+
+# Estimate the cross overs
+wpp_tfr_standard <- wpp_tfr_standard[order(region, variant_births, year)]
+wpp_tfr_standard[, cross_over:= ifelse(lag(rel_diff)>0&rel_diff<0, 1, 0), by=.(region, variant_births)]
+
+# Plot the cross overs
+# Plot the cross-overse
+ggplot(data=subset(wpp_tfr_standard, cross_over==1&variant_births=="Medium"&location_type=="Country/Area"), aes(x=year, fill=sdg_region, colour=sdg_region)) +
+  geom_vline(xintercept=2023) +
+  geom_histogram(bins=50, alpha=0.5) +
+  scale_x_continuous("Year", breaks=seq(1950, 2100, by=10), limits=c(1950, 2100), expand=c(0, 0)) + 
+  scale_y_continuous(expand=c(0, 0), n.breaks=10) +
+  facet_wrap(~sdg_region) +
+  scale_fill_viridis_d(option="D") +
+  scale_colour_viridis_d(option="D") +
+  theme(legend.title=element_blank(),
+        axis.text.x=element_text(angle=45, vjust=1, hjust=1)) +
+  guides(fill="none", colour="none")
+
+### Conflict impact =======================================
+
+# Load the military conflict data
+dt_conflict <- fread("raw/UcdpPrioConflict_v25_1.xlsx", sheet=1)
 
 ### END #######################################
