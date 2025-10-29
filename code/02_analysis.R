@@ -195,14 +195,34 @@ save(wpp_tfr_standard, file="data/wpp_tfr_standard.Rda")
 
 ## Estimate the adult age ratio ----------------------------------
 
+# Define the age groups
+age_groups_lower <- c(20, 25, 25)
+age_groups_upper <- c(39, 44, 49)
+
 # Filter the adult population
-wpp_pop_adult <- dt_wpp_pop[age%in%20:30, ]
+wpp_pop_adult <- dt_wpp_pop[age%in%20:49, ]
 
-# Estimate the adult sex ratio
-wpp_pop_adult <- wpp_pop_adult[, .(pop_male=sum(pop_male), pop_female=sum(pop_female)), by=.(region, location_code, variant, year)]
+# Create some age groups
+for (i in seq_along(age_groups_lower)) {
+  
+  # Select the corresponding age gorup
+  tmp <- wpp_pop_adult[age %in% age_groups_lower[i]:age_groups_upper[i]]
+  
+  # Aggregate the data
+  tmp <- tmp[, .(asr=sum(pop_male)/sum(pop_female), males=sum(pop_male), females=sum(pop_female)), by=.(region, location_code, variant, year)]
+  
+  # Create an age_group vector
+  tmp[, age_group:=paste(age_groups_lower[i], age_groups_upper[i], sep="_")]
+  
+  assign(paste("sr", i, sep="_"), tmp)
+  
+}
 
-# Estimate the sex ratio
-wpp_pop_adult[, asr:=pop_male/pop_female]
+# Merge the data
+wpp_pop_adult <- rbindlist(mget(ls(pattern = "sr_")))
+
+# Reshape the data to wide format
+wpp_pop_adult <- dcast(wpp_pop_adult, formula= "region + location_code + variant + year ~ age_group", value.var = c("asr", "males", "females"))
 
 # Save the data
 save(wpp_pop_adult, file="data/wpp_pop_adult_sr.Rda")

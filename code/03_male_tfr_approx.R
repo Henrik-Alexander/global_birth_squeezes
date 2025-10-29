@@ -14,6 +14,7 @@ library(stringr)
 library(tidyverse)
 library(stargazer)
 library(ggrepel)
+library(latex2exp)
 #library(gg3D)
 
 # Load the graphical scheme
@@ -54,6 +55,9 @@ fert_subnational[, data:="Subnational fertility data"]
 
 # Remove very low estimates of male and female TFR
 fert_subnational <- fert_subnational[tfr_female>0.5 & tfr_male>0.5, ]
+
+# Drop excess columns
+fert_subnational[, ':='(entity=NULL, state=NULL, mac_male=NULL, mac_female=NULL, mac_diff=NULL)]
 
 ### Prepare the national fertility data =============
 
@@ -105,27 +109,29 @@ ccd$country[ccd$county== "Yugoslavia" ] <-  "Yugoslavia"
 # Merge the country TFR with the wpp adult population
 fert_national <- merge(ccd, wpp_pop_adult, by.x=c("country", "year"), by.y=c("region", "year"))
 
-
-
-
 # Estimate the regression model =====================
 
 # Combine the national and the subnaitonal data
 fert_global <- rbindlist(list(fert_subnational, fert_national), fill=TRUE)
 
-# Remove unnececary variables
-fert_global <- fert_global[, .(country, year, data, tfr_male, tfr_female, tfr_ratio, asr, males, females)]
+# Remove the unncecessary columns
+fert_global[, ':='(country.y=NULL, cntry=NULL, tfr2=NULL, U=NULL, ï..country=NULL)]
 
 # Assign outliers
-fert_global[, outlier:=ifelse(asr>3|asr<0.3, TRUE, FALSE)]
+fert_global[, outlier:=ifelse(asr_20_39>3|asr_20_39<0.3, TRUE, FALSE)]
+
+# Save the data
+save(fert_global, file = "data/data_tfr_asr.Rda")
+
+# Analyse the data ================================
 
 # Plot the resilationship between 
-ggplot(data=fert_global, aes(x=asr, y=tfr_ratio)) +
+ggplot(data=fert_global, aes(x=asr_25_44, y=tfr_ratio)) +
   geom_hline(yintercept=1, linetype="dashed") +
   geom_vline(xintercept=1, linetype="dashed") +
-  facet_wrap(~ data) +
+  facet_wrap(~ data, scales="free") +
   #geom_smooth(aes(colour=country), method="lm", se=F) +
-  geom_text(data=subset(fert_global, asr>1.8), aes(label=country, colour=data),hjust="right", vjust="bottom") +
+  geom_text(data=subset(fert_global, asr_25_44>1.8), aes(label=country, colour=data),hjust="right", vjust="bottom") +
   geom_point(aes(colour=data), alpha=0.3) +
   geom_smooth(aes(colour=data), method="lm", formula="y~x", se=F) +
   geom_smooth(method="lm", se=F, formula="y~x", colour="black", linewidth=1, aes(colour=data)) +
@@ -136,28 +142,60 @@ ggplot(data=fert_global, aes(x=asr, y=tfr_ratio)) +
     axis.text.x=element_text(angle=45, hjust=1, vjust=1)
   )
 
-# SAvew the data
+# Save the data
 ggsave("results/global_tfr_adult_sr.pdf", height=25, width=20, unit="cm")
+
+
+# Estimate the baseline model ======================
+
+# Remove Christian's data
+fert_global <- fert_global[data != "Human Fertility Collection", ]
 
 # Create the log data
 fert_global[, log_tfr_male:=log(tfr_male)]
 fert_global[, log_tfr_female:=log(tfr_female)]
-fert_global[, log_asr:=log(asr)]
+fert_global[, log_asr:=log(asr_20_39)]
 
 # Estimate the regression model
 model_approximation <- lm(log_tfr_male~log_tfr_female + log_asr, data=fert_global)
 
-# Look at the model fit
-plot(model_approximation)
-
 # Look at the model result
 summary(model_approximation)
 
+# Estimate the postponement model ==================
+
+# Estimate the postponement model
+fert_global[, log_asr_postponement:=log(asr_25_49)]
+
+# Estimate the regression model
+model_postponement <- lm(log_tfr_male~log_tfr_female + log_asr_postponement, data=fert_global)
+
+# Look at the model result
+summary(model_postponement)
+
+# Model age gap ==================================
+
+# Estimate the postponement model
+fert_global[, log_asr_agegap:=log(males_25_44/females_20_39)]
+
+# Estimate the regression model
+model_agegap <- lm(log_tfr_male~log_tfr_female + log_asr_agegap, data=fert_global)
+
+# Look at the model result
+summary(model_agegap)
+
+# Analyze the regression results =================
+
 # Create the regression table
-stargazer(model_approximation, 
+stargazer(model_approximation, model_postponement, model_agegap,
           type="latex",
+          label="tbl:regression",
+          title="Regression table presenting the results from regression in equation \\ref{equ:regress}. The predictor variables are the total fertility rate for women (logarithm) and the sex ratio at age 20 to 39 (logarithm). The outcome variable is the total fertility rate for men (logarithm). The top panel presents the regression coefficients and the bottom panel the model metrics.",
+          column.labels = c("Baseline", "Postponement", "Age gap"),
           dep.var.labels = "log TFR men",
-          covariate.labels = c("log TFR women", "log SR (20-39)", "Intercept"),
+          # apply.coef = function(x) round(x, 3),
+          # apply.ci = function(x) round(x, 2),
+          covariate.labels = c("log TFR women", "log SR (20-39)", "log SR (25-44)", "log $\\frac{\\text{men}_{25-44}}{\\text{men}_{20-39}}$", "Intercept"),
           ci=T, keep.stat=c("n", "rsq", "adj.rsq"))
 
 # Print the r-squared
@@ -170,12 +208,17 @@ prediction_examples$prediction <- predict(model_approximation, prediction_exampl
 prediction_examples <- exp(prediction_examples)
 
 
-# Save the model
-save(model_approximation, file="results/model_tfr_approximation.Rda")
+# Create a list of the models
+regression_models <- mget(ls(pattern = "^model_"))
+summary_models <- lapply(regression_models, summary)
 
-# Print the fit statistics
-cat("R-squared=", summary_model_approximation$r.squared, "\n")
-cat("R-square adjuted=", summary_model_approximation$adj.r.squared, "\n")
+# Save the model
+save(regression_models, file="results/model_tfr_approximation.Rda")
+
+
+# Print the r-squared
+paste("R-squared", names(regression_models), "=", sapply(summary_models, function(model) round(model$r.squared, 3)), "\n")
+paste("R-squared-square adjuted", names(regression_models), "=", sapply(summary_models, function(model) round(model$adj.r.squared, 3)), "\n")
 
 # If the coefficients are not statistical significant, rerun reduced model
 if (!all(summary_model_approximation$coefficients[2:3, 4]<0.05)) {
@@ -193,12 +236,12 @@ if (!all(summary_model_approximation$coefficients[2:3, 4]<0.05)) {
 # Save the final data set
 save(fert_global, file="data/fert_global_asr.Rda")
 
-# Plot the resilationship between 
+# Plot the relationship between 
 ggplot(data=fert_global, aes(x=tfr_female, y=tfr_male, colour=data)) +
   geom_abline(intercept=0, slope=1, linetype="dashed") +
   geom_point(alpha=0.3) +
-  geom_abline(intercept=coef(model_approximation)[1], slope=coef(model_approximation)[2]) +
-  geom_text(data=subset(fert_global, asr>1.8), aes(label=country, colour=data),hjust="right", vjust="bottom") +
+  geom_abline(intercept=coef(model_agegap)[1], slope=coef(model_agegap)[2]) +
+  geom_text(data=subset(fert_global, log_asr_agegap >1.8), aes(label=country, colour=data),hjust="right", vjust="bottom") +
   facet_wrap(~ data) +
   geom_point(aes(colour=data), alpha=0.3) +
   scale_x_continuous("TFR female/Sex ratio (20-39)", n.breaks=10, trans="log10") +
@@ -211,11 +254,11 @@ ggplot(data=fert_global, aes(x=tfr_female, y=tfr_male, colour=data)) +
 ggsave(filename = "results/male_fertility_approx_tfr_fem.pdf", height=20, width=20, unit="cm")
 
 # Plot the resilationship between 
-ggplot(data=fert_global, aes(x=asr, y=tfr_male, colour=data)) +
+ggplot(data=fert_global, aes(x=log_asr_agegap, y=tfr_male, colour=data)) +
   geom_vline(xintercept=1) +
   geom_point(alpha=0.3) +
-  geom_text(data=subset(fert_global, asr>1.8), aes(label=country, colour=data),hjust="right", vjust="bottom") +
-  geom_abline(intercept=coef(model_approximation)[1], slope=coef(model_approximation)[3]) +
+  geom_text(data=subset(fert_global, log_asr_agegap>1.8), aes(label=country, colour=data),hjust="right", vjust="bottom") +
+  geom_abline(intercept=coef(model_agegap)[1], slope=coef(model_agegap)[3]) +
   #facet_wrap(~ data) +
   geom_point(aes(colour=data), alpha=0.3) +
   scale_x_continuous("Sex ratio (20-39)", n.breaks=10, trans="log10") +
@@ -261,17 +304,34 @@ wpp_tfr_pop <- merge(x=wpp_tfr, y=wpp_pop_adult, by=c("region", "location_code",
 wpp_tfr_pop <- wpp_tfr_pop[region!="Holy See"]
 
 # Clean the region label
-wpp_tfr_pop$region_label <- str_remove(wpp_tfr_pop$region, "\\(.+\\)")
+wpp_tfr_pop[, region_label := str_remove(region, "\\(.+\\)")]
 
 # Rename the TFR variable
 wpp_tfr_pop[, log_tfr_female:=log(tfr)]
-wpp_tfr_pop[, log_asr:=log(asr)]
+wpp_tfr_pop[, log_asr:=log(asr_20_39)]
+wpp_tfr_pop[, log_asr_agegap:=log(males_25_44/females_20_39)]
+wpp_tfr_pop[, log_asr_postponement:=log(asr_25_44)]
 
 # Predict the data
-tfr_prediction <- predict(model_approximation, wpp_tfr_pop, se.fit=TRUE, interval="prediction", level=0.9)
+tfr_prediction <- lapply(regression_models, predict, newdata = wpp_tfr_pop, se.fit=TRUE, interval="prediction", level=0.9)
+
+# Extract the model filt
+tfr_prediction <- lapply(tfr_prediction, function(fit) as.data.table(exp(fit$fit)))
+
+# Create an index Row
+tfr_prediction <- lapply(tfr_prediction, function(x) x[, .(.I, fit, lwr, upr)])
+
+# Bind the results
+tfr_prediction <- rbindlist(tfr_prediction, idcol = "model")
+
+# Create the wide data
+tfr_prediction <- dcast(tfr_prediction, "I ~ model", value.var =c("fit", "lwr", "upr"), sep = ".")
 
 # Attach the prediction to the original data
-wpp_tfr_pop <- bind_cols(wpp_tfr_pop, exp(tfr_prediction$fit))
+wpp_tfr_pop <- bind_cols(wpp_tfr_pop, tfr_prediction)
+
+# Create long data
+wpp_tfr_pop <- melt(wpp_tfr_pop, id.vars=c("region", "location_code", "year", "variant_tfr", "tfr", "region_label"), measure.vars= measure(value.name, model, sep = "."), variable.factor = F)
 
 # Estiamte the relative difference
 wpp_tfr_pop[, tfr_diff := (fit-tfr)/tfr]  
@@ -279,8 +339,8 @@ wpp_tfr_pop[, tfr_diff_upr := (upr-tfr)/tfr]
 wpp_tfr_pop[, tfr_diff_lwr := (lwr-tfr)/tfr]
 
 # Estimate the cross-overs
-wpp_tfr_pop <- wpp_tfr_pop[order(region, variant_tfr,  year), ]
-wpp_tfr_pop[, cross_over:= ifelse(lag(tfr)<lag(fit)&tfr>fit, 1, 0), by=region]
+wpp_tfr_pop <- wpp_tfr_pop[order(model, region, variant_tfr,  year), ]
+wpp_tfr_pop[, cross_over:= ifelse(lag(tfr)<lag(fit)&tfr>fit, 1, 0), by=.(model, region)]
 
 # Merge with the location data
 wpp_tfr_pop <- merge(wpp_tfr_pop, wpp_location, by="region")
@@ -288,18 +348,24 @@ wpp_tfr_pop <- merge(wpp_tfr_pop, wpp_location, by="region")
 # Clean the sdg region label
 wpp_tfr_pop$sdg_region <- str_remove(wpp_tfr_pop$sdg_region, "\\(.+\\)")
 
+# Make the model an ordered factor
+wpp_tfr_pop[, model := factor(model, levels = c("model_approximation", "model_postponement", "model_agegap"))]
+
 # Save the data
 save(wpp_tfr_pop, file="data/wpp_male_tfr_prediction.Rda")
 
 # Estimate the numbers
-wpp_tfr_pop[year%in% c(1950, 2025, 2100) & location_type=="Country/Area" & variant_tfr=="Medium", .(higher_men=mean(ifelse(tfr_diff>0, 1, 0))), by=year]
+wpp_tfr_pop[year%in% c(1950, 2025, 2100) & location_type=="Country/Area" & variant_tfr=="Medium", .(higher_men=mean(ifelse(tfr_diff>0, 1, 0))), by=.(year, model)]
 
 # Range of the difference
-wpp_tfr_pop[location_type=="Country/Area" & variant_tfr=="Medium", .(range=100*range(tfr_diff))]
+wpp_tfr_pop[location_type=="Country/Area" & variant_tfr=="Medium", .(range=100*range(tfr_diff)), by=model]
+
+# Select the best model
+wpp_tfr_pop <- wpp_tfr_pop[model == "model_agegap", ]
 
 # Estimate the share of higher countries
 wpp_tfr_pop[, male_birth_squeeze:=ifelse(tfr_diff>0, 1, 0)]
-wpp_tfr_pop[variant_tfr=="Medium"&location_type=="Country/Area", .(.N) , by=.(year, male_birth_squeeze)] |> 
+wpp_tfr_pop[variant_tfr=="Medium"&location_type=="Country/Area", .(.N) , by=.(year, male_birth_squeeze, model)] |> 
   ggplot(aes(x=year, y=N, fill=factor(male_birth_squeeze))) + 
   geom_col() +
   geom_vline(xintercept = 2024) +
@@ -318,12 +384,9 @@ ggplot(wpp_tfr_pop, aes(x=year, y=tfr_diff, group=year, colour=year)) +
   guides(colour="none")
 ggsave(filename="results/distr_relative_difference_tfr.pdf", height=15, width = 35, unit="cm")
 
-unique(wpp_tfr_pop$year[wpp_tfr_pop$tfr_diff > 1])
-
-
-# Fint the maximum and minimum tfr difference
-wpp_tfr_pop[tfr_diff< -0.733]
-
+# Find the maximum and minimum tfr difference
+wpp_tfr_pop[which.min(wpp_tfr_pop$tfr_diff), ]
+wpp_tfr_pop[which.max(wpp_tfr_pop$tfr_diff), ]
 
 ## 3.2 Plot the approximations ------------------------
 
@@ -353,26 +416,24 @@ ggplot(subset(wpp_tfr_pop, region %in% c("China", "Republic of Korea", "India" )
 ggsave(filename="results/tfr_rel_difference_asia.pdf", height=10, width=20, unit="cm")
 
 # Plot sdg regions
-plot_sdg_rel <- function(sdg_reg, df=wpp_tfr_pop) {
+lapply(unique(wpp_tfr_pop$sdg_region)[1:3], function(sdg_reg, df=wpp_tfr_pop) {
   df <- subset(df, variant_tfr=="Medium" & sdg_region==sdg_reg)
   plot_sdg <- ggplot(data=df, aes(x=year, group=region)) +
-  geom_vline(data=subset(df, cross_over==1), aes(xintercept=year, colour=region)) +
-  geom_ribbon(aes(ymin=0, ymax=tfr_diff, fill=region, colour=region), alpha=0.3) +
-  geom_hline(yintercept=0) +
-  geom_line(aes(y=tfr_diff, colour=region)) +
-  scale_x_continuous("Year", n.breaks=10, expand=c(0, 0)) +
-  scale_y_continuous("Relative TFR difference (TFR men - TFR women)", n.breaks=10, expand=c(0, 0), labels=scales::percent) +
-  facet_wrap(~region) +
-  scale_fill_viridis_d(option="D") +
-  scale_colour_viridis_d(option="D") + 
-  guides(colour="none", fill="none") +
-  theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1))
-    
+    geom_vline(data=subset(df, cross_over==1), aes(xintercept=year, colour=region)) +
+    geom_ribbon(aes(ymin=0, ymax=tfr_diff, fill=region, colour=region), alpha=0.3) +
+    geom_hline(yintercept=0) +
+    geom_line(aes(y=tfr_diff, colour=region)) +
+    scale_x_continuous("Year", n.breaks=10, expand=c(0, 0)) +
+    scale_y_continuous("Relative TFR difference (TFR men - TFR women)", n.breaks=10, expand=c(0, 0), labels=scales::percent) +
+    facet_wrap(~region) +
+    scale_fill_viridis_d(option="D") +
+    scale_colour_viridis_d(option="D") + 
+    guides(colour="none", fill="none") +
+    theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1))
+  
   ggsave(plot_sdg, filename=paste0("results/sdg_reg_tfr_diff_", sdg_reg, ".pdf"), height=25, width=25, unit="cm")
   return(plot_sdg)
-}
-
-lapply(unique(wpp_tfr_pop$sdg_region)[1:3], plot_sdg_rel)
+})
 
 
 ## 3.3. Cross-overs -------------------------------------
@@ -390,7 +451,7 @@ ggplot(subset(wpp_tfr_pop, variant_tfr=="Medium"&location_type=="Country/Area"),
         axis.text.x=element_text(angle=45, vjust=1, hjust=1))
 ggsave(filename="results/tfr_ratio_crossover.pdf", height=25, width=35,unit="cm")
 
-
+# Filter the first 
 # Plot the crossovers
 ggplot(data=subset(wpp_tfr_pop, cross_over==1&variant_tfr=="Medium"&location_type=="Country/Area"), aes(x=fct_reorder(region, year), y=year, colour=sdg_region)) +
   geom_hline(yintercept=2023) +
@@ -400,8 +461,8 @@ ggplot(data=subset(wpp_tfr_pop, cross_over==1&variant_tfr=="Medium"&location_typ
   theme(
     axis.ticks.y = element_blank(),
     axis.title.y = element_blank(),
-    legend.title=element_blank()
-  )
+    legend.title=element_blank(),
+    legend.position=c(0.8, 0.2))
 ggsave(filename="results/tfr_ratio_crossovers_country.pdf", height=50, width=25, unit="cm")
 
 
@@ -651,12 +712,16 @@ ggsave(filename=paste0("results/robustness/wpp2024_scenario_rel_medium_", sdg, "
 
 # Load the male national fertility database
 load("data/fert_global_asr.Rda")
+load("data/wpp_male_tfr_prediction.Rda")
 
 # Merge the male fertility database
 validation <- merge(fert_global[data=="Human Fertility Collection", ], wpp_tfr_pop[variant_tfr=="Medium"], by.x=c("country", "year"), by.y=c("region", "year"), suffixes = c("_obs", "_pred"))
 
 # Estimate the error
 validation[, error:=tfr_male-fit]
+
+# Estimate the mean prediciton error
+mean_prediction_error <- validation[, .(mean_error=mean(error), rmse=mean(sqrt(error^2))), by=model]
 
 # Plot the data
 ggplot(data=validation, aes(x=tfr_male, colour=country)) +
@@ -665,16 +730,25 @@ ggplot(data=validation, aes(x=tfr_male, colour=country)) +
   geom_linerange(aes(ymin=lwr, ymax=upr), alpha=0.3) +
   scale_x_continuous("TFR men observed", n.breaks=10, expand=c(0, 0)) +
   scale_y_continuous("TFR men predicted", n.breaks=10, expand=c(0, 0)) +
-  guides(colour=guide_legend(nrow=2))
-ggsave(filename="results/out_of_sample_validation.pdf", height=15, width=15, unit="cm")
+  guides(colour=guide_legend(nrow=2)) +
+  facet_wrap(~ model, ncol=1)
+ggsave(filename="results/out_of_sample_validation.pdf", height=25, width=15, unit="cm")
 
 # Plot the error distribution
-ggplot(data=validation, aes(x=error)) + 
-  geom_vline(xintercept=0) + 
-  geom_histogram(bins = 40, colour="white") +
-  scale_x_continuous("Prediction error (observed-predicted)", n.breaks=10, expand=c(0, 0)) +
-  scale_y_continuous(expand=c(0, 0), n.breaks=10)
-ggsave(filename="results/out_of_sample_validation_error.pdf", height=15, width=15, unit="cm")
+ggplot(data=validation, aes(x=error, fill=model, colour=model)) + 
+  geom_vline(aes(xintercept=0, linetype="zero")) + 
+  geom_histogram(bins = 30, colour="white", alpha=0.3) +
+  geom_text(data=mean_prediction_error, aes(x=-0.2, y=40, label = paste0("Residual mean=", round(mean_error, 3))), hjust="left", family="serif")+
+  geom_text(data=mean_prediction_error, aes(x=-0.2, y=30, label = paste0("RMSE=", round(rmse, 3))), hjust="left", family="serif")+
+  scale_x_continuous("Prediction error (observed-predicted)", n.breaks=8, expand=c(0, 0)) +
+  geom_vline(data=mean_prediction_error, aes(xintercept = mean_error, colour=model, linetype="average error"), linewidth=1) +
+  scale_y_continuous("Count", expand=c(0, 0), n.breaks=10) +
+  facet_wrap(~model, ncol=1) +
+  scale_fill_viridis_d(end=0.8) +
+  scale_colour_viridis_d(end=0.8) +
+  scale_linetype_manual(values=c("solid","dotted")) +
+  guides(fill="none", colour="none")
+ggsave(filename="results/out_of_sample_validation_error.pdf", height=25, width=15, unit="cm")
 
 # Prediction intervals calibration
 validation[, calibrated:=ifelse(lwr<tfr_male & upr>tfr_male, 1, 0)]
