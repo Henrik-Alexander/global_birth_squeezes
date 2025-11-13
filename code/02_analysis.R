@@ -19,6 +19,9 @@ load("data/wpp_location.Rda")
 # Merge the data
 df <- merge(dt_wpp_lt, dt_wpp_srb, by=c("region", "location_code", "year"), all.x=TRUE, all.y=TRUE)
 
+# Select a country vector
+countries_examples <- c("China", "Republic of Korea", "India", "Cambodia", "Rwanda", "Guatemala")
+
 # 2. Estiamte period parity age  ============================
 
 # Estimate the number of survival
@@ -51,7 +54,7 @@ ggplot(data=parity_age, aes(x=year, y=parity_age)) +
 ggsave(filename="results/parity_age_globally.pdf", height=20, width=25, unit="cm")
 
 # Plot China and Taiwan
-ggplot(data=subset(parity_age, region %in% c("China", "Republic of Korea", "Viet Nam", "Cambodia", "Rwanda", "Guatemala")), aes(x=year, y=parity_age)) +
+ggplot(data=subset(parity_age, region %in% countries_examples), aes(x=year, y=parity_age)) +
   geom_line(aes(group=region, colour=region), linewidth=2) +
   scale_x_continuous("Year", expand=c(0, 0), breaks=seq(1950, 2030, by=10)) +
   scale_y_continuous("Parity age", breaks=seq(0, 100, by=10)) +
@@ -61,14 +64,14 @@ ggplot(data=subset(parity_age, region %in% c("China", "Republic of Korea", "Viet
 ggsave(filename="results/parity_age_asian_examples.pdf", height=15, width=25, unit="cm")
 
 # Estimate the aggregate
-df_aggregate <- df[region %in% c("China", "Republic of Korea", "Viet Nam", "Cambodia", "Rwanda", "Guatemala"), .(sx_m=mean(sx_m, na.rm=T), sx_f=mean(sx_f, na.rm=T)), by=.(region, age)]
+df_aggregate <- df[region %in% countries_examples, .(sx_m=mean(sx_m, na.rm=T), sx_f=mean(sx_f, na.rm=T)), by=.(region, age)]
 
 # Plot China and Taiwan
-ggplot(data=subset(df, region %in% c("China", "Republic of Korea", "Viet Nam", "Cambodia", "Rwanda", "Guatemala")), aes(x=age, y=sx_m/sx_f)) +
+ggplot(data=subset(df, region %in% countries_examples), aes(x=age, y=sx_m/sx_f)) +
   geom_hline(yintercept = 1) +
   #geom_line(aes(group=year), colour="grey", alpha=0.3, linewidth=0.2) +
-  geom_line(data=subset(df, year %in% c(1950, 1970, 1995, 2020) & region %in% c("China", "Republic of Korea", "Viet Nam", "Cambodia", "Rwanda", "Guatemala")), aes(x=age, y=sx_m/sx_f, colour=factor(year), group=year), linewidth=1.4) +
-  geom_line(data=df_aggregate, aes(x=age, y=sx_m/sx_f, colour="average", linetype="Country average"), linewidth=1.3, colour="black") + 
+  geom_line(data=subset(df, year %in% c(1950, 1970, 1995, 2020) & region %in% countries_examples), aes(x=age, y=sx_m/sx_f, colour=factor(year), group=year), linewidth=1.4) +
+  #geom_line(data=df_aggregate, aes(x=age, y=sx_m/sx_f, colour="average", linetype="Country average"), linewidth=1.3, colour="black") + 
   scale_x_continuous("Age", expand=c(0, 0), breaks=seq(0, 100, by=10)) +
   scale_y_continuous("Sex ratio of life table survivors accounting for SRB", breaks=seq(0, 2, by=0.2), limits=c(0, 1.22), expand=c(0, 0)) +
   scale_colour_viridis_d("Year") +
@@ -81,7 +84,7 @@ ggsave(filename="results/lifetable_sr_asian_examples.pdf", height=25, width=20, 
 
 # Subset the data
 df |> 
-  filter(region %in% c("China", "Republic of Korea", "Viet Nam", "Cambodia", "Rwanda", "Guatemala") & year %in% c(1950, 1970, 1995, 2020)) |> 
+  filter(region %in% countries_examples & year %in% c(1950, 1970, 1995, 2020)) |> 
   group_by(region, year) |> 
   mutate(cross_over = ifelse(sx_m/sx_f < 1 & lag(sx_m/sx_f) > 1, 1, 0)) |> 
   filter(cross_over==1) |> 

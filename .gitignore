@@ -11,3 +11,7 @@
 # Directories
 data/
 .Rproj.user
+code/old/
+results/
+
+# Exclude files
