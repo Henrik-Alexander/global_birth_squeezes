@@ -6,7 +6,6 @@
 *.log
 *.docx
 *.svg
-*.Rda
 
 # Directories
 data/
