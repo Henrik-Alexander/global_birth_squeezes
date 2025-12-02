@@ -17,7 +17,6 @@ library(tidyverse)
 library(stargazer)
 library(ggrepel)
 library(latex2exp)
-#library(gg3D)
 
 # Load the graphical scheme
 source("code/graphics.R")

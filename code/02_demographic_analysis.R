@@ -81,18 +81,6 @@ ggplot(data=subset(df, region %in% countries_examples), aes(x=age, y=sx_m/sx_f))
        caption="Source: author's calculation using WPP 2024.")
 ggsave(filename="results/lifetable_sr_asian_examples.pdf", height=25, width=20, unit="cm")
 
-
-# Subset the data
-df |> 
-  filter(region %in% countries_examples & year %in% c(1950, 1970, 1995, 2020)) |> 
-  group_by(region, year) |> 
-  mutate(cross_over = ifelse(sx_m/sx_f < 1 & lag(sx_m/sx_f) > 1, 1, 0)) |> 
-  filter(cross_over==1) |> 
-  select(region, year, age) |> 
-  pivot_wider(names_from="year", values_from="age") |> 
-  View()
-
-
 ## Cohort perspective ===========================
 
 # Merge the new cohort data
@@ -261,8 +249,8 @@ ggplot(data=subset(wpp_tfr_standard, region %in% c("China", "Republic of Korea",
 
 ggsave(filename="results/standard_east_asia_rel.pdf", height=15, width=25,unit="cm")
 
-
-ggplot(data=subset(wpp_tfr_standard, location_type=="Country/Area" &variant_births=="Medium"&year%in%seq(1950, 2100, by=50)), aes(x=rel_diff/100, fill=as.factor(sdg_region))) +
+# Plot the tfr standard
+ggplot(data=subset(wpp_tfr_standard, location_type=="Country/Area" & variant_births=="Medium"&year%in%seq(1950, 2100, by=50)), aes(x=rel_diff/100, fill=as.factor(sdg_region))) +
   geom_vline(xintercept=0, linetype="solid") +
   geom_histogram(bins=50, colour="white") +
   facet_wrap(~ year) +
@@ -272,13 +260,11 @@ ggplot(data=subset(wpp_tfr_standard, location_type=="Country/Area" &variant_birt
   theme(legend.title=element_blank())
 ggsave(filename="results/standard_distribution_time.pdf", height=15, width=25,unit="cm")
 
-
-# Estimate the cross overs
+# Estimate the crossovers
 wpp_tfr_standard <- wpp_tfr_standard[order(region, variant_births, year)]
 wpp_tfr_standard[, cross_over:= ifelse(lag(rel_diff)>0&rel_diff<0, 1, 0), by=.(region, variant_births)]
 
-# Plot the cross overs
-# Plot the cross-overse
+# Plot the crossovers
 ggplot(data=subset(wpp_tfr_standard, cross_over==1&variant_births=="Medium"&location_type=="Country/Area"), aes(x=year, fill=sdg_region, colour=sdg_region)) +
   geom_vline(xintercept=2023) +
   geom_histogram(bins=50, alpha=0.5) +
@@ -290,10 +276,5 @@ ggplot(data=subset(wpp_tfr_standard, cross_over==1&variant_births=="Medium"&loca
   theme(legend.title=element_blank(),
         axis.text.x=element_text(angle=45, vjust=1, hjust=1)) +
   guides(fill="none", colour="none")
-
-### Conflict impact =======================================
-
-# Load the military conflict data
-dt_conflict <- fread("raw/UcdpPrioConflict_v25_1.xlsx", sheet=1)
 
 ### END #######################################

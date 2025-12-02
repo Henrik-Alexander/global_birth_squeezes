@@ -6,29 +6,26 @@
 # Date: 26/09/2025
 ##
 
+rm(list=ls()); gc(TRUE)
+
 # Set the meta-parameters ==============================
 
 install_packages <- FALSE
-
 
 # Create the folder structure ==========================
 
 folders <- c("code", "raw", "data", "results", "text")
 lapply(folders, function(folder) if(!dir.exists(folder)) dir.create(folder))
 
-
 # Install the packages =================================
 
 if(install_packages) {
-  packages <- c("tidyverse", "data.table", "R.utils", "gg3D")
+  packages <- c("tidyverse", "data.table", "R.utils", "gg3D", 
+                "ggrepel", "latex2exp", "stargazer", "readxl", 
+                "maps", "ggthemes", "dtplyr", "httr")
   install.packages(packages)
   remotes::install_github("AckerDWM/gg3D")
 }
-
-# 
-
-<<<<<<< HEAD
-
 
 # Run the code =========================================
 
@@ -46,7 +43,5 @@ source("code/03_male_tfr_approach.R")
 
 # 5. Estimate the age grap approach
 source("code/04_age_gap_approach.R")
-=======
->>>>>>> parent of 712dd5e (Include Christian's estimation|)
 
 ### END ################################################

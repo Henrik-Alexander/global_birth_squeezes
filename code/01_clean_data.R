@@ -6,8 +6,6 @@
 # Date: 26/09/2025
 ##
 
-rm(list=ls())
-
 library(ggplot2)
 library(readxl)
 library(data.table)
@@ -32,15 +30,17 @@ dt_wpp_pop[, age:=as.numeric(str_remove_all(age, "\\+"))]
 
 # Save the data
 save(dt_wpp_pop, file="data/wpp_pop.Rda")
-rm(dt_wpp_pop)
 
 # Clean the SRB =================================
 
-# Load the demographic indicators compats
-dt_wpp_demo <- as.data.table(read_xlsx(raw_files[str_detect(raw_files, "DEMOGRAPHIC_INDICATORS")], skip=16))
+# Load the demographic indicators compact
+dt_wpp_srb <- read_xlsx("raw/WPP2024_GEN_F01_DEMOGRAPHIC_INDICATORS_COMPACT.xlsx", skip=16)
 
-# Select the SRB and the location
-dt_wpp_pop <- dt_wpp_pop[, c("Variant", "Location", "LocID", "Time", "AgeGrp", "AgegrpSpan", "PopMale", "PopFemale")]
+# Select the indicators
+dt_wpp_srb <- dt_wpp_srb[, c("Variant", "Region, subregion, country or area *", "Location code", "Year", "Sex Ratio at Birth (males per 100 female births)")]
+
+# Make the data to a data.table
+dt_wpp_srb <- as.data.table(dt_wpp_srb)
 
 # Set the names
 setnames(dt_wpp_srb, old=names(dt_wpp_srb), new=c("variant", "region", "location_code", "year", "srb"))
