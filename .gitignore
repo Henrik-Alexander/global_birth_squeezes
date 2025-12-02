@@ -9,7 +9,6 @@
 *.gz
 *.zip
 
-
 # Directories
 data/
 raw/
