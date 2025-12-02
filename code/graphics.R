@@ -16,7 +16,8 @@ theme_update(panel.grid.major=element_line(linewidth=0.2, linetype="dotted", col
              strip.text = element_text(face="bold"),
              legend.position="bottom", 
              panel.spacing = unit(0.5, "cm"),
-             plot.margin = margin(0.1, 0.5, 0.1, 0.1, "cm")
+             plot.margin = margin(0.1, 0.5, 0.1, 0.1, "cm"),
+             axis.title=element_text(face="bold")
              )
 
 ### END ###########################

@@ -171,4 +171,47 @@ ggplot() +
   )
 ggsave("results/srb_world_map_2023.svg")
 
+
+## Plot the male-female fertility map ==============================
+
+# Load the male fertility data
+load("data/wpp_male_tfr_prediction.Rda")
+
+# Merge
+wpp_tfr_pop[year==2024, m49_cd:=locid_m49(location_code)]
+map_parity_age <- merge(maps$BNDA, wpp_tfr_pop[year==2024, ], by="m49_cd", all.x=T, all.y=T)
+
+ggplot() +
+  # Plot the country bodies
+  geom_sf(data=maps[[1]], fill = "black", colour=NA) +
+  geom_sf(data=map_parity_age, aes(fill=tfr_diff, colour=NA)) +
+  # Plot the country boundaries
+  # three styles of boundaries should be mapped: standard solid line, dashed line for undetermined boundaries, dotted for selected disputed boundaries
+  # to do that, we create a separate dataframe with each containing boundaries of the same type
+  # SOLID: 0 is coastlines; 1 is international boundaries; 
+  geom_sf(data=boundaries$`0`, colour="black", linewidth=0.1) +
+  geom_sf(data=boundaries$`1`, colour="black", linewidth=0.1) + 
+  # DASHED: Undetermined boundary lines (e.g. Sudan and South Sudan, State of Palestine)
+  geom_sf(data=boundaries$`3`, colour="black", linetype="dashed", linewidth=0.1) +   
+  # DOTTED: Jammu and Kashmir line of control
+  geom_sf(data=boundaries$`4`, colour="black", linetype="dotted", linewidth=0.1) + 
+  # Plot the lakes
+  geom_sf(data=maps[["WBYA"]], fill=water, colour=NA, linewidth=0.1) +
+  # Change the axis
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0, 0)) +
+  # Create the plotting
+  scale_fill_gradient2("Difference male-female TFR (%)", low="darkred", mid="lightgrey", high="darkblue", midpoint=0) +
+  # Add the labs
+  #labs(caption=un_caption) +
+  # Create the background
+  theme(
+    panel.background = element_rect(fill=water),
+    axis.text = element_blank(),
+    legend.position="bottom",
+    axis.ticks = element_blank(),
+    legend.key.width=unit(2, "cm"),
+    panel.border = element_blank()
+  )
+ggsave(filename="results/world_map_tfr_diff2024.pdf", height=20, width=40, unit="cm")
 ### END ###############################################

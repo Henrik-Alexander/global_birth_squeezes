@@ -1,13 +1,26 @@
 # Files
 *.xlsx
 *.csv
-*.pdf
+#*.pdf
 *.html
 *.log
 *.docx
 *.svg
-*.Rda
+*.gz
+*.zip
+
 
 # Directories
 data/
+raw/
 .Rproj.user
+code/old/
+text/
+results/
+Download/
+malefertilityforecast-master/
+
+# Files
+code/worldmap.R
+code/plot_jalovaara2019.R
+code/plot_figures_global_fertility.R
