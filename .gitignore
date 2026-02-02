@@ -11,6 +11,7 @@
 
 # Directories
 data/
+raw/GGS
 raw/git add 
 .Rproj.user
 code/old/

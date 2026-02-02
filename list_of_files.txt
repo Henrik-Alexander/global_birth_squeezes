@@ -1,0 +1,29 @@
+List of files:
+- pnas_paper.tex
+- supplementary_materials.tex
+- titlepage.tex
+
+List of figures: Masculinization of populations reverses sex difference in fertility
+
+- tfr_ratio_male_squeeze.pdf
+- tfr_rel_difference_asia.pdf
+- lifetable_sr_asian_examples.pdf
+
+List of figures in SI:
+- out_of_sample_validation.pdf
+- out_of_sample_validation_error.pdf
+- fert_diff_uncertain_.pdf
+- fert_diff_uncertain_categories.pdf
+- fert_diff_variant_.pdf
+- fert_diff_variant_sdg.pdf
+- fert_diff_variant_sdg2_uncertainty.pdf
+- fert_diff_variant_sdg2_demographic.pdf
+- higher_than_medium_global.pdf
+- higher_than_medium_sdg.pdf
+- standardization_rel_diff_time_trend.pdf
+- comparison_of_approaches.pdf
+
+
+
+List of tables:
+- regression_table.tex

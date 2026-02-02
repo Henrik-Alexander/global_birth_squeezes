@@ -9,6 +9,9 @@
 library(data.table)
 library(ggplot2)
 
+# Load the graphic scheme
+source("code/graphics.R")
+
 # 1. Data preperation =========================
 
 # Load the data
@@ -22,7 +25,7 @@ df <- merge(dt_wpp_lt, dt_wpp_srb, by=c("region", "location_code", "year"), all.
 # Select a country vector
 countries_examples <- c("China", "Republic of Korea", "India", "Cambodia", "Rwanda", "Guatemala")
 
-# 2. Estiamte period parity age  ============================
+# 2. Estimate period parity age  ============================
 
 # Estimate the number of survival
 df[, sx_m := srb*cumprod(px_m), by = .(region, location_code, year)]
