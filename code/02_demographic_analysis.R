@@ -43,6 +43,9 @@ parity_age <- merge(parity_age, wpp_location, by="region")
 # Save the parity age for periods
 save(parity_age, file="data/parity_age_period.Rda")
 
+# Save the data
+save(df, file = "data/decomp_pop.Rda")
+
 ## 2.2. Plot period results --------------------------------
 
 # Plot the parity age

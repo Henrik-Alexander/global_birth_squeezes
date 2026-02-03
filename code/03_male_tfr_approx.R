@@ -210,13 +210,10 @@ prediction_examples <- exp(prediction_examples)
 prediction_examples[prediction_examples$log_tfr_female %in% c(1, 2.1, 3, 5) & prediction_examples$log_asr_agegap %in% c(0.5, 1, 2), ]
 
 # Plot the prediction examples
-=======
-                                   "log_asr_agegap" = log(seq(0.5, 2, by=0.1)))
 prediction_examples <- bind_cols(prediction_examples, as.data.frame(predict(model_agegap, prediction_examples, interval="confidence")))
 prediction_examples <- exp(prediction_examples)
 prediction_examples[prediction_examples$log_tfr_female %in% c(1, 2.1, 3, 5) & prediction_examples$log_asr_agegap %in% c(0.5, 1, 2), ]
 
->>>>>>> 5c05eaac0ca1ffba6926d06dd1e8d6091bd4789e
 ggplot(data=subset(prediction_examples, round(log_tfr_female, 1) %in% c(1, 2.1, 3.0, 5)), aes(x=log_asr_agegap, y=fit, group=log_tfr_female, colour=as.factor(log_tfr_female), fill=as.factor(log_tfr_female))) +
   geom_vline(xintercept=1) + 
   geom_line() +
@@ -519,7 +516,6 @@ ggplot(data=male_birth_sqeezes, aes(x=year, y=N, fill=factor(male_birth_squeeze)
   geom_vline(xintercept = 2025, linetype="dashed", colour="grey") +
   facet_wrap(~ sdg_region, scales="free_y", ncol=2) +
   scale_x_continuous("Year", expand=c(0, 0), breaks=seq(1950, 2100, by=25)) +
-<<<<<<< HEAD
   scale_y_continuous("Number of countries", expand=c(0, 0), n.breaks=8) +
   scale_fill_viridis_d(labels=c("Higher TFRw", "Higher TFRm"), begin=0.2, end=0.7) +
   theme(legend.title=element_blank(),
@@ -530,22 +526,19 @@ ggsave(filename="results/tfr_ratio_male_squeeze.pdf", height=30, width=20, unit=
 # Estimate the weighted cross-over
 
 
-=======
+
   scale_y_continuous("Number of countries", expand=c(0, 0)) +
   scale_fill_viridis_d(labels=c("Higher TFRw", "Higher TFRm"), begin=0.5, end=0.9) +
   theme(legend.title=element_blank(),
         axis.text.x=element_text(angle=45, vjust=1, hjust=1))
 ggsave(filename="results/tfr_ratio_male_squeeze.pdf", height=30, width=20, unit="cm")
->>>>>>> 5c05eaac0ca1ffba6926d06dd1e8d6091bd4789e
 
 ## 3.4 Plot the prediction uncertainty --------------------------------
 
 # Plot the male to female TFR trend
-<<<<<<< HEAD
 wpp_tfr_pop[sdg_region=="" & variant_tfr=="Medium", .(region_label=str_replace(region_label, ",|;", "\n"), tfr_diff_lwr, tfr_diff_upr, tfr_diff, year)] |> 
-=======
 wpp_tfr_pop[sdg_region=="" & variant_tfr=="Medium", .(region_label=str_replace(region_label, ",", "\n"), tfr_diff_lwr, tfr_diff_upr, tfr_diff, year)] |> 
->>>>>>> 5c05eaac0ca1ffba6926d06dd1e8d6091bd4789e
+
   ggplot(aes(x=year)) +
     geom_hline(yintercept=0) +
     geom_vline(xintercept=2023, linetype="dashed") +
@@ -553,7 +546,6 @@ wpp_tfr_pop[sdg_region=="" & variant_tfr=="Medium", .(region_label=str_replace(r
     geom_line(aes(y=tfr_diff), lwd=1.2) +
     scale_x_continuous("Year", expand=c(0, 0), breaks=seq(1950, 2100, by=25)) +
     scale_y_continuous("Difference TFR men to TFR women", n.breaks=6, labels = scales::percent, expand=c(0, 0)) +
-<<<<<<< HEAD
     facet_wrap(~region_label, ncol=5) +
     theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1))
 ggsave(filename=paste0("results/robustness/fert_diff_uncertain_.pdf"), height=50, width=35, unit="cm")
@@ -573,12 +565,10 @@ ggplot(data=subset(wpp_tfr_pop, sdg_region==sdg & variant_tfr=="Medium"), aes(x=
   theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1))
 ggsave(filename=paste0("results/robustness/fert_diff_uncertain_", sdg, ".pdf"), height=25, width=35, unit="cm")
 }
-=======
     ggtitle("Relative difference of male TFR to female TFR ") +
     facet_wrap(~region_label, ncol=5) +
     theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1))
 ggsave(filename=paste0("results/robustness/fert_diff_uncertain_.pdf"), height=50, width=40, unit="cm")
->>>>>>> 5c05eaac0ca1ffba6926d06dd1e8d6091bd4789e
 
 # Estimate the categories
 wpp_tfr_pop[, birth_squeeze_uncertain:=factor(fcase(tfr_diff_upr<0, 1,
@@ -598,7 +588,7 @@ ggsave(filename="results/robustness/fert_diff_uncertain_categories.pdf", height=
 
 ## 3.4 Plot the scenarios ------------------------------------
 
-<<<<<<< HEAD
+
 # Plot the uncertainty by SDG-region
 for (sdg in unique(wpp_tfr_pop$sdg_region)) {
   ggplot(data=subset(wpp_tfr_pop, sdg_region==sdg), aes(x=year, colour=variant_tfr, group=variant_tfr, fill=variant_tfr)) +
@@ -614,7 +604,7 @@ for (sdg in unique(wpp_tfr_pop$sdg_region)) {
     theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1))
   ggsave(filename=paste0("results/robustness/fert_diff_variant_", sdg, ".pdf"), height=35, width=25, unit="cm")
 }
-=======
+
 # Create a new data set for the scenarios
 scenarios <- wpp_tfr_pop
 
@@ -623,7 +613,7 @@ scenarios$uncertainty_scenarios <- str_extract(scenarios$variant_tfr, "[a-zA-Z0-
 scenarios$intervals <- str_trim(str_remove(scenarios$variant_tfr, scenarios$uncertainty_scenarios))
 scenarios$intervals[scenarios$intervals==""] <- "Median"
 scenarios$scenario_type <- ifelse(is.na(scenarios$uncertainty_scenarios), "Demographic scenarios", "Statistical scenarios")
->>>>>>> 5c05eaac0ca1ffba6926d06dd1e8d6091bd4789e
+
 
 # Plot the variants
 scenarios[year>=2025, .N, by=.(year, birth_squeeze_uncertain, variant_tfr)] |> 
@@ -659,12 +649,12 @@ scenarios[year>=2025 & scenario_type == "Demographic scenarios" , .(share = sum(
   scale_y_continuous("Proportion of countries with higher male TFR (%)", n.breaks=6,  expand = c(0, 0), labels=scales::percent) +
   facet_wrap(~ sdg_region, scales="free_x", ncol=2) +
   theme(panel.spacing.x = unit(0.8, "cm"))
-<<<<<<< HEAD
+
 ggsave(filename=paste0("results/robustness/fert_diff_variant_sdg2.pdf"), height=35, width=30, unit="cm")
 
-=======
+
 ggsave(filename=paste0("results/robustness/fert_diff_variant_sdg2_demographic.pdf"), height=35, width=30, unit="cm")
->>>>>>> 5c05eaac0ca1ffba6926d06dd1e8d6091bd4789e
+
 
 # Plot the uncertainty scenarios
 scenarios[year>=2025 & scenario_type == "Statistical scenarios" , .(share = sum(male_birth_squeeze)/.N), by=.(year, sdg_region, intervals, uncertainty_scenarios)] |> 
@@ -690,11 +680,9 @@ rel_diff_variant <- merge(scenarios, scenarios[variant_tfr=="Medium", .(year, re
 # Aggregate the scenarios impact on birth squeezes
 rel_diff_variant[, higher_than_medium := ifelse(diff_to_medium>0, 1, 0)]
 
-<<<<<<< HEAD
+
 mean_diff <- rel_diff_variant[variant_tfr!="Medium", .(higher_than_medium=mean(higher_than_medium)), by=.(year, variant_tfr)]
-=======
 mean_diff <- rel_diff_variant[variant_tfr!="Medium" & scenario_type == "Demographic scenarios", .(higher_than_medium=mean(higher_than_medium)), by=.(year, variant_tfr)]
->>>>>>> 5c05eaac0ca1ffba6926d06dd1e8d6091bd4789e
 ggplot(data=mean_diff, aes(x=year,y=higher_than_medium, group=variant_tfr, colour=variant_tfr)) +
   geom_line(linewidth=1.1) +
   geom_text_repel(data=subset(mean_diff, variant_tfr!="Medium"& year==2100), aes(label=variant_tfr), nudge_x = 5, check_overlap = TRUE) +
