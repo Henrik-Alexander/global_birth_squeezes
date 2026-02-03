@@ -203,7 +203,6 @@ summary_model_approximation <- summary(model_approximation)
 
 # Make the examples
 prediction_examples <- expand.grid("log_tfr_female"=log(seq(1, 5, by=0.1)),
-<<<<<<< HEAD
                                    "log_asr_agegap" = log(seq(0.5, 3, by=0.1)))
 prediction_examples <- bind_cols(prediction_examples, as.data.frame(predict(model_agegap, prediction_examples, interval="prediction", level=0.9)))
 prediction_examples <- exp(prediction_examples)
@@ -651,9 +650,6 @@ scenarios[year>=2025 & scenario_type == "Demographic scenarios" , .(share = sum(
   theme(panel.spacing.x = unit(0.8, "cm"))
 
 ggsave(filename=paste0("results/robustness/fert_diff_variant_sdg2.pdf"), height=35, width=30, unit="cm")
-
-
-ggsave(filename=paste0("results/robustness/fert_diff_variant_sdg2_demographic.pdf"), height=35, width=30, unit="cm")
 
 
 # Plot the uncertainty scenarios

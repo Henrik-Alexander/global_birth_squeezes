@@ -11,7 +11,13 @@ rm(list = ls())
 library(data.table)
 library(tidyverse)
 
-# Comment R. 1. C. 2 ===========================================================
+# Select the country examples
+countries_examples <- c("China", "Republic of Korea", "India", "Rwanda", "Guatemala")
+
+
+# Reviewer 1 ===================================================================
+
+## Comment R. 1. C. 2 ----------------------------------------------------------
 
 # Estimate levels of childlessness
 # Register data: Norway and Finland
@@ -32,8 +38,79 @@ tfr_wpp <- wpp_tfr_pop[region %in% childlessness_tanturri$Country, ]
 # Aggregate the data and filter
 tfr_wpp_1990s <- tfr_wpp[year %in% 1990:1999, .(tfr_ratio = mean(fit) / mean(tfr)), by = .(region)]
 
+## Comment R. 1 C. 3 -----------------------------------------------------------
 
-# Comment R. 1. C. 4 ===========================================================
+# 1. Plot the components of the regression
+
+# Load the regression models
+load("results/model_tfr_approximation.Rda")
+
+# Select the regression model
+mod_coeff <- coefficients(regression_models$model_agegap)
+
+# Filter the data
+df <- wpp_tfr_pop[variant_tfr == "Medium" & model == "model_agegap", ]
+df <- df[, .(region, year, tfr, fit, log_asr_agegap)]
+
+# Create the tfr ratio
+df[, tfr_ratio := fit / tfr]
+
+# Estimate the male TFR from the regression
+df[, male_tfr := exp(mod_coeff["(Intercept)"] + mod_coeff["log_tfr_female"] * log(tfr) + mod_coeff["log_asr_agegap"] * log_asr_agegap)]
+
+# Estiamte the components
+df[, tfr_component := exp(mod_coeff["log_tfr_female"] * log(tfr))]
+df[, pop_component := exp(mod_coeff["log_asr_agegap"] * log_asr_agegap)]
+df[, est_tfr_ratio := (exp(mod_coeff["(Intercept)"]) * tfr_component * pop_component)/tfr]
+
+# Make the counterfactual simulation using 2025 as reference category
+ref_year <- 2025
+df_ref <- df[year==2025, ]
+df_ref[, year:=NULL]
+df_ref <- merge(df, df_ref, by = c("region"), suffixes = c("", "_ref"), all.x=TRUE, allow.cartesian = TRUE)
+
+# Plot the counterfactual trend
+ggplot(data=subset(df_ref, region %in% c("China", "India", "Republic of Korea", "Sweden", "United Kingdom", "United States of America")), aes(x=year)) +
+  geom_hline(yintercept = 1, linetype = "dashed") +
+  geom_vline(xintercept = 2025, linetype = "dashed", colour="black") +
+  geom_line(aes(y = tfr_ratio, linetype = "Observed"), linewidth=1.2) +
+  geom_line(aes(y = (exp(mod_coeff["(Intercept)"]) * tfr_component_ref * pop_component)/tfr_ref, colour = "TFR from 2025", linetype = "Counterfactual"), linewidth=1.2) +
+  geom_line(aes(y = (exp(mod_coeff["(Intercept)"]) * tfr_component * pop_component_ref)/tfr, colour = "Population from 2025", linetype = "Counterfactual"), linewidth=1.2) +
+  geom_ribbon(aes(ymin = (exp(mod_coeff["(Intercept)"]) * tfr_component_ref * pop_component)/tfr_ref, ymax = tfr_ratio, fill = "TFR from 2025"), alpha=0.3) +
+  geom_ribbon(aes(ymin = (exp(mod_coeff["(Intercept)"]) * tfr_component * pop_component_ref)/tfr, ymax = tfr_ratio, fill = "Population from 2025"), alpha=0.3) +
+  scale_colour_manual("Data:", values = c("blue", "red")) +
+  scale_fill_manual("Data:", values = c("blue", "red")) +
+  scale_linetype_manual("Scenario:", values = c("dotted", "solid")) +
+  scale_x_continuous("Year", n.breaks=10, expand=c(0, 0)) +
+  scale_y_log10("Sex Ratio", n.breaks=8) +
+  theme(panel.spacing.x=unit(0.1, "cm")) +
+  facet_wrap(~ region, ncol=2)
+ggsave(filename = "results/decomposition_sex_ratio_change.pdf", height=25, width=20, unit="cm")
+
+
+
+# Plot for a single case
+df_long <- melt(data=df, id.vars=c("region", "year", "tfr"), measure.vars = c("tfr_component", "pop_component"))
+ggplot(data = subset(df_long, region == "France"), aes(x = year)) +
+  geom_line(aes(y = exp(mod_coeff["(Intercept)"])/tfr)) +
+  geom_line(aes(y = value/tfr, group = variable, colour = variable)) +
+  geom_line(aes(y = exp(mod_coeff["(Intercept)"] * value)/tfr, group = variable, colour=variable), linetype = "dotted")
+  
+
+
+# Decompose the change fit
+
+
+
+# Decompose the change in the TFR ratio into contributions in pop structure and fertility
+
+
+
+## Counterfactual simulation
+# Set the components to the value from 1950
+
+
+## Comment R. 1. C. 4 -----------------------------------------------------------
 
 # Goal: Replot figure 3
 # Distinguish into the mortality and the SRB component
@@ -47,10 +124,8 @@ ref_year <- 1950
 ages <- seq(20, 50, by = 15)
 years <- seq(1960, 2100, by = 10)
 
-# Select the country examples
-countries_examples <- c("China", "Republic of Korea", "India", "Rwanda", "Guatemala")
 
-# Estimate the component -----------------------------------------------------
+## Estimate the component
 
 # Create a new data frame for the decomposition
 decomp <- df
@@ -63,7 +138,7 @@ decomp[, ratio_pop := ratio_mortality * ratio_birth]
 # Select the important columns
 decomp <- decomp[!is.na(ratio_birth), .(ratio_pop, ratio_mortality, ratio_birth, region, year, age)]
 
-# Plot the results -----------------------------------------------------------
+## Plot the results
 
 # Reshape longer
 decomp_long <- melt(decomp, id.vars = c("region", "year", "age"))
@@ -106,7 +181,7 @@ ggsave(filename="results/plot_decomp_sex_ratio_contribution.pdf", height=20, wid
 
 # Reviewer 2 ===================================================================
 
-# Comment R. 2 C. 2 ============================================================ 
+## Comment R. 2 C. 2 ----------------------------------------------------------- 
 
 # Plot the gender gap in mortality
 lt_future_f <- fread("raw/WPP2024_Life_Table_Complete_Medium_Female_2024-2100.csv")
@@ -139,9 +214,8 @@ ggplot(data=subset(lt_future, Location %in% c("Sub-Saharan Africa", "High-income
 ggsave("results/pop_ratio_ssa.pdf", width=15, height=10, unit="cm")
 
 
-# Comment R. 2. C. 2 ===========================================================
+# Comment R. 2. C. 2 -----------------------------------------------------------
 
-# Goal: Replot figure 3
 # Distinguish into the mortality and the SRB component
 load("data/wpp_male_tfr_prediction.Rda")
 
