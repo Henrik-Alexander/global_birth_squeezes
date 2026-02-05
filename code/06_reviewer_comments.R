@@ -10,10 +10,11 @@ rm(list = ls())
 
 library(data.table)
 library(tidyverse)
+library(readxl)
+library(HMDHFDplus)
 
 # Select the country examples
 countries_examples <- c("China", "Republic of Korea", "India", "Rwanda", "Guatemala")
-
 
 # Reviewer 1 ===================================================================
 
@@ -23,20 +24,42 @@ countries_examples <- c("China", "Republic of Korea", "India", "Rwanda", "Guatem
 # Register data: Norway and Finland
 # Survey data: Rest
 
-# Load the GGS harmonized birth histories
-ggs_births <- fread("raw/GGS/HarmonizedHistoriesII_2026_01_21.csv")
-
 ## Load the data from Tanturri 2015
 childlessness_tanturri <- fread("raw/childlessness-worldwide.csv")
 
 # Load the fertility data
 load("data/wpp_male_tfr_prediction.Rda")
 
-# Filter the coutnries
-tfr_wpp <- wpp_tfr_pop[region %in% childlessness_tanturri$Country, ]
+# Harmonize the Country names in the childlessness data: Russia, UK, US, Coratia, Cyech Republic
+childlessness_tanturri$Country[childlessness_tanturri$Country=="Coratia"] <- "Croatia"
+childlessness_tanturri$Country[childlessness_tanturri$Country=="Russia"] <- "Russian Federation"
+childlessness_tanturri$Country[childlessness_tanturri$Country=="US"] <- "United States of America"
+childlessness_tanturri$Country[childlessness_tanturri$Country=="Czech Republic"] <- "Czechia"
+childlessness_tanturri$Country[childlessness_tanturri$Country=="UK"] <- "United Kingdom"
 
-# Aggregate the data and filter
-tfr_wpp_1990s <- tfr_wpp[year %in% 1990:1999, .(tfr_ratio = mean(fit) / mean(tfr)), by = .(region)]
+# Filter the coutnries
+tfr_wpp <- wpp_tfr_pop[region %in% childlessness_tanturri$Country & model == "model_agegap", ]
+
+# Estimate the TFR ratios
+tfr_wpp_1990s <- tfr_wpp[year %in% 1990:1999, .(tfr_ratio_1990s = mean(fit) / mean(tfr)), by=.(region)]
+tfr_wpp_1995 <- tfr_wpp[year == 1995, .(tfr_ratio1995 = fit / tfr), by=.(region)]
+tfr_ratio <- merge(tfr_wpp_1990s, tfr_wpp_1995, by="region")
+
+# Merge the data
+tfr_ratio <- merge(childlessness_tanturri, tfr_ratio, by.x = "Country", by.y="region", all.x=T)
+
+ggplot(data = tfr_ratio, aes(x=tfr_ratio_1990s, y = `Male Childlessness`/`Female Childlessness`)) +
+  geom_smooth(se=F, method="lm", formula = "y~x", colour="black", linewidth=1) +
+  geom_hline(yintercept = 1, linetype = "dashed") +
+  geom_vline(xintercept = 1, linetype = "dashed") +
+  geom_point(aes(colour=Country)) +
+  geom_text(aes(label=Country, colour=Country), vjust=-0.8, family = "serif", size=3) +
+  scale_x_log10("TFR ratio (1990s)", n.breaks=10) +
+  scale_y_log10("Childlessness ratio (2010)", n.breaks=10) +
+  scale_colour_viridis_d() +
+  guides(colour = "none")
+ggsave(filename = "results/childlessness_tfr_ratio.pdf", height=10, width=14, unit="cm")
+
 
 ## Comment R. 1 C. 3 -----------------------------------------------------------
 
@@ -78,14 +101,14 @@ ggplot(data=subset(df_ref, region %in% c("China", "India", "Republic of Korea", 
   geom_line(aes(y = (exp(mod_coeff["(Intercept)"]) * tfr_component * pop_component_ref)/tfr, colour = "Population from 2025", linetype = "Counterfactual"), linewidth=1.2) +
   geom_ribbon(aes(ymin = (exp(mod_coeff["(Intercept)"]) * tfr_component_ref * pop_component)/tfr_ref, ymax = tfr_ratio, fill = "TFR from 2025"), alpha=0.3) +
   geom_ribbon(aes(ymin = (exp(mod_coeff["(Intercept)"]) * tfr_component * pop_component_ref)/tfr, ymax = tfr_ratio, fill = "Population from 2025"), alpha=0.3) +
-  scale_colour_manual("Data:", values = c("blue", "red")) +
-  scale_fill_manual("Data:", values = c("blue", "red")) +
+  scale_colour_manual("Data:", values = c("darkblue", "red")) +
+  scale_fill_manual("Data:", values = c("darkblue", "red")) +
   scale_linetype_manual("Scenario:", values = c("dotted", "solid")) +
   scale_x_continuous("Year", n.breaks=10, expand=c(0, 0)) +
-  scale_y_log10("Sex Ratio", n.breaks=8) +
+  scale_y_log10("TFR Ratio (TFR men / TFR women)", n.breaks=8) +
   theme(panel.spacing.x=unit(0.1, "cm")) +
-  facet_wrap(~ region, ncol=2)
-ggsave(filename = "results/decomposition_sex_ratio_change.pdf", height=25, width=20, unit="cm")
+  facet_wrap(~ region, nrow=3)
+ggsave(filename = "results/decomposition_tfr_ratio_change.pdf", height=25, width=20, unit="cm")
 
 
 
@@ -96,20 +119,6 @@ ggplot(data = subset(df_long, region == "France"), aes(x = year)) +
   geom_line(aes(y = value/tfr, group = variable, colour = variable)) +
   geom_line(aes(y = exp(mod_coeff["(Intercept)"] * value)/tfr, group = variable, colour=variable), linetype = "dotted")
   
-
-
-# Decompose the change fit
-
-
-
-# Decompose the change in the TFR ratio into contributions in pop structure and fertility
-
-
-
-## Counterfactual simulation
-# Set the components to the value from 1950
-
-
 ## Comment R. 1. C. 4 -----------------------------------------------------------
 
 # Goal: Replot figure 3
@@ -123,7 +132,6 @@ load("data/decomp_pop.Rda")
 ref_year <- 1950
 ages <- seq(20, 50, by = 15)
 years <- seq(1960, 2100, by = 10)
-
 
 ## Estimate the component
 
@@ -178,6 +186,118 @@ ggplot(data=decomp_long, aes(x=year)) +
   theme(panel.spacing.x=unit(0.1, "cm"),
         legend.title = element_blank())
 ggsave(filename="results/plot_decomp_sex_ratio_contribution.pdf", height=20, width=20, unit="cm")
+
+## Comment R. 1. C. 5 -----------------------------------------------------------
+
+## Plot the relationship between TFRm/TFRw and MAC-MAF
+## 1. Obtain estimates on mean age of fatherhood and mean age at childbearing
+## 2. Plot the relationship
+
+### 1. Schoumaker's data -------------------------------------------------------
+
+# Set the path
+path_schoumaker <- "U:/data/global/schoumaker_male"
+
+# Load the male and female fertility estimates
+schoumaker_tfr <- read_xlsx(path = list.files(path_schoumaker, full.names = T)[1])
+schoumaker_tfr <- as.data.table(schoumaker_tfr)
+
+# Load the projection
+schoumaker_projection <- read_xlsx(path = list.files(path_schoumaker, full.names = T)[2])
+
+# Select the data
+schoumaker_tfr <- schoumaker_tfr[, .(country = `Country name`, cntry=`ISO-3`,
+                                     tfr_female = as.numeric(`Female TFR (shown on Figures)`),
+                                     mac_female = as.numeric(`Mean age at childbearing (shown on Figures)`),
+                                     tfr_male = as.numeric(`Male TFR (shown on Figures)`),
+                                     mac_male = as.numeric(`Mean age at fatherhood (shown on Figures)`),
+                                     source = "Schoumaker's male fertility data")]
+
+### 2. Male Fertility database -------------------------------------------------
+
+# Set the path to the male fertility database
+path_mfd <- "U:/data/global/male_fertility_database"
+file_names <- list.files(path_mfd)
+
+# Load the files
+mfd <- lapply(file.path(path_mfd, file_names), fread)
+
+# Bind the files together
+mfd <- rbindlist(mfd)
+
+# Estimate the mean age of childbearing
+mfd <- mfd[, .(tfr_male = sum(ASFR), mac_male = sum(ASFR*Age)/sum(ASFR)), by = .(Country, Year1)]
+setnames(mfd, "Country", "CNTRY")
+
+# Load the country coCountry# Load the country codes for the HFD
+hfd_countries <- HMDHFDplus::getHFDcountries()
+hfd_countries <- as.data.table(hfd_countries)
+hfd_countries[, link:=NULL]
+
+# Merge the mfd data with the country names
+mfd <- merge(mfd, hfd_countries, by = "CNTRY", all.x=T)
+
+#### Load the female ASFR data -------------------------------------------------
+
+# Load the female data
+source("U:/accounts/authentification.R")
+
+# Load for the countries the ASFRs
+for(country in unique(mfd$Country)) {
+  tmp <- readHFDweb(CNTRY = country, item = "asfrRR", username = hfd_un, password = hfd_pw)
+  tmp$Country <- country
+  assign(paste0("hfd_asfr_", country), tmp)
+}
+
+# Collect the data
+asfr_hfd <- rbindlist(mget(ls(pattern = "hfd_asfr_")))
+
+# Estimatme the TFR and the mean age at chidlbearing
+hfd <- asfr_hfd[, .(tfr_female = sum(ASFR), mac_female = sum(ASFR*Age)/sum(ASFR)), by = .(Country, Year)]
+setnames(hfd, old = "Country", new = "CNTRY")
+
+# Merge the HFD with the male fertility database
+mfd <- merge(hfd, mfd, by.x=c("Year", "CNTRY"), by.y=c("Year1", "CNTRY"), all.y=T, all.x=F, suffixes = c("_w", "_m"))
+
+# Make column names to lower
+setnames(mfd, old = names(mfd), new = tolower(names(mfd)))
+
+# Make the source
+mfd[, source := "Male Fertility Database"]
+
+rm(list = ls(pattern = "hfd_"), tmp)
+
+### 3. Subnational fertility data ----------------------------------------------
+
+# Load the analysis data
+load("U:/projects/4_gender_mac_diff/data/analysis_data.Rda")
+
+# Load the fertility data
+load("U:/projects/3 Regional birth squeezes/Subnational_birth_squeezes/data/fert_data_subnational.Rda")
+
+# Merge dev and fert data
+subnational_fert_data <- merge(dev, fert, by = c("country", "region", "year"))
+
+# Make the data frame a data table
+subnational_fert_data <- as.data.table(subnational_fert_data)
+
+# Create an indicator for the data source
+subnational_fert_data[, source := "Subnational male fertility data"]
+
+### Bring the data together ----------------------------------------------------
+
+# Bring the data together
+male_fertility_data <- rbindlist(list(subnational_fert_data, schoumaker_tfr), fill = TRUE)
+
+# Plot the relationship
+ggplot(data = male_fertility_data, aes(x=tfr_male/tfr_female, y = mac_male-mac_female)) +
+  geom_vline(xintercept=1, linetype="dashed", colour="red") +
+  geom_point(aes(colour = source), alpha = 0.7) +
+  geom_smooth(formula = "y~poly(x, 2)", method="lm", se = F, colour = "grey") +
+  scale_x_log10("TFR ratio (TFR men / TFR women)", n.breaks = 10, expand=c(0.01, 0)) +
+  scale_y_continuous("Average parental age gap (MAF - MAC)", n.breaks = 10) +
+  scale_colour_viridis_d("Data source:")
+ggsave(filename = "results/tfr_ratio_age_childbearing.pdf", height=12, width=15, unit="cm")
 
 # Reviewer 2 ===================================================================
 

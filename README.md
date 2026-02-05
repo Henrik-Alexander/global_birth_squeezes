@@ -1,6 +1,6 @@
 # Global birth squeezes
 
-Authors: Vegard Skirbekk, Thomas Spoorenberg, Christian Dudel and Henrik-Alexander Schubert
+Authors: Henrik-Alexander Schubert, Vegard Skirbekk, Thomas Spoorenberg, Christian Dudel
 
 ## Purpose
 This project seeks to describe the in the population at reproductive age between 1950 and 2024 around the world using the World Population Prospects 2024. All code on which this analysis is based was written in the [**R**](https://www.r-project.org/) statistical programming language.
