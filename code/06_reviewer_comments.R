@@ -109,8 +109,6 @@ ggplot(data=subset(df_ref, region %in% c("China", "India", "Republic of Korea", 
   facet_wrap(~ region, nrow=3)
 ggsave(filename = "results/decomposition_tfr_ratio_change.pdf", height=25, width=20, unit="cm")
 
-
-
 # Plot for a single case
 df_long <- melt(data=df, id.vars=c("region", "year", "tfr"), measure.vars = c("tfr_component", "pop_component"))
 ggplot(data = subset(df_long, region == "France"), aes(x = year)) +
@@ -196,6 +194,7 @@ schoumaker_projection <- read_xlsx(path = list.files(path_schoumaker, full.names
 
 # Select the data
 schoumaker_tfr <- schoumaker_tfr[, .(country = `Country name`, cntry=`ISO-3`,
+                                     year = `Central year`,
                                      tfr_female = as.numeric(`Female TFR (shown on Figures)`),
                                      mac_female = as.numeric(`Mean age at childbearing (shown on Figures)`),
                                      tfr_male = as.numeric(`Male TFR (shown on Figures)`),
@@ -291,7 +290,6 @@ ggplot(data = male_fertility_data, aes(x=tfr_male/tfr_female, y = mac_male-mac_f
   scale_colour_viridis_d("Data source:")
 ggsave(filename = "results/tfr_ratio_age_childbearing.pdf", height=12, width=15, unit="cm")
 
-
 # Relationship with the birth rate
 ggplot(data = male_fertility_data, aes(x=tfr_female, y = mac_male-mac_female)) +
   geom_vline(xintercept=1, linetype="dashed", colour="red") +
@@ -301,6 +299,88 @@ ggplot(data = male_fertility_data, aes(x=tfr_female, y = mac_male-mac_female)) +
   scale_y_continuous("Average parental age gap (MAF - MAC)", n.breaks = 10) +
   scale_colour_viridis_d("Data source:")
 
+# Relate to the female age at childbearing
+ggplot(data = male_fertility_data, aes(x=mac_female, y = mac_male-mac_female)) +
+  #geom_vline(xintercept=1, linetype="dashed", colour="red") +
+  geom_point(aes(colour = source), alpha = 0.7) +
+  geom_smooth(formula = "y~poly(x, 2)", method="lm", se = F, colour = "grey") +
+  scale_x_continuous("Mean age at childbearing (women)", n.breaks = 10, expand=c(0.01, 0)) +
+  scale_y_continuous("Average parental age gap (MAF - MAC)", n.breaks = 10) +
+  scale_colour_viridis_d("Data source:")
+
+# Over time
+ggplot(data = male_fertility_data, aes(x=year, y = mac_male-mac_female)) +
+  #geom_vline(xintercept=1, linetype="dashed", colour="red") +
+  geom_point(aes(colour = source), alpha = 0.7) +
+  geom_smooth(formula = "y~poly(x, 2)", method="lm", se = F, colour = "grey") +
+  scale_x_continuous("TFR women", n.breaks = 10, expand=c(0.01, 0)) +
+  scale_y_continuous("Average parental age gap (MAF - MAC)", n.breaks = 10) +
+  scale_colour_viridis_d("Data source:")
+
+## Make the age-adjusted decomposition -----------------------------------------
+
+# Load the WPP2024 population data
+load("data/wpp_pop.Rda")
+
+# Load the WPP2024 fertility data
+load("data/wpp_tfr.Rda")
+
+# Estimate the average age gap
+male_fertility_data[, age_gap := mac_male - mac_female]
+
+# Estimate the model
+model_age_difference <- lm(age_gap ~ tfr_female + I(tfr_female^2), data=male_fertility_data)
+
+# Rename the female TFR
+wpp_tfr <- wpp_tfr[variant == "Medium", ]
+setnames(wpp_tfr, "tfr", "tfr_female")
+
+# Predict the data
+wpp_tfr$age_difference <- predict(model_age_difference, wpp_tfr)
+
+# Merge the population data and thepredicted data
+dt_wpp_pop <- merge(dt_wpp_pop, wpp_tfr[, .(region, year, age_difference)], by = c("region", "year"))
+
+## Age difference men
+
+
+# Estimate the female population
+pop_female <- dt_wpp_pop[age %in% 16:50, ]
+pop_female <- pop_female[, .(pop_male = sum(pop_male),
+                             pop_female = sum(pop_female)), 
+                         by = .(region, year)]
+
+# Estimate the male population
+pop_male <- dt_wpp_pop[, ]
+pop_male[, age_min := 16 + round(age_difference)]
+pop_male[, age_max := 50 + round(age_difference)]
+pop_male <- pop_male[age >= age_min & age <= age_max, ]
+pop_male <- pop_male[, .(pop_male_adjusted = sum(pop_male),
+                         age_difference = unique(age_difference)), by = .(region, year)]
+
+# Merge the two population data sets
+pop_sex_ratio <- merge(pop_female, pop_male, by = c("region", "year"))
+
+# Estimate the population sex ratios
+pop_sex_ratio[, pop_sex_ratio := pop_male / pop_female]
+pop_sex_ratio[, pop_sex_ratio_agegap := pop_male_adjusted / pop_female]
+
+# Estimate the ratio of sex ratio to 
+scale_age_difference <- mean(pop_sex_ratio$pop_sex_ratio)/mean(pop_sex_ratio$age_difference)
+
+# Plot the world
+ggplot(data=subset(pop_sex_ratio, region %in% c("World", countries_examples)), aes(x=year)) +
+  geom_hline(yintercept = 1) +
+  geom_vline(xintercept = 2025, linetype = "dashed") +
+  geom_line(aes(y=pop_sex_ratio, colour = "Sex ratio", linetype = "Population sex ratio (left y-axis)"), linewidth = 1.3) +
+  geom_line(aes(y=pop_sex_ratio_agegap, colour = "Age gap", linetype = "Population sex ratio (left y-axis)"), linewidth = 1.3) +
+  geom_line(aes(y=age_difference * scale_age_difference, linetype = "Age difference (right y-axis)")) +
+  scale_x_continuous("Year", n.breaks = 10, expand = c(0, 0)) +
+  scale_y_log10("Population sex ratio (Men / Women)", n.breaks = 10, sec.axis = sec_axis(~ . / scale_age_difference, name = "Age difference", breaks=c(2, 3, 5, 7, 10, 15))) +
+  scale_colour_viridis_d("Population sex ratio:") +
+  scale_linetype_manual("", values = c("dashed", "solid")) +
+  facet_wrap(~ region, ncol=2)
+ggsave(filename = "results/pop_sex_ratio_agegap.pdf", height = 25, width = 15, unit="cm")
 
 # Reviewer 2 ===================================================================
 
