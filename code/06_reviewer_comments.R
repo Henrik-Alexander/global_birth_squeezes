@@ -233,9 +233,12 @@ source("U:/accounts/authentification.R")
 
 # Load for the countries the ASFRs
 for(country in unique(mfd$Country)) {
-  tmp <- readHFDweb(CNTRY = country, item = "asfrRR", username = hfd_un, password = hfd_pw)
+  try(tmp <- readHFDweb(CNTRY = country, item = "asfrRR", username = hfd_un, password = hfd_pw))
+  if (length(ls(pattern = "tmp")) != 0) {
   tmp$Country <- country
   assign(paste0("hfd_asfr_", country), tmp)
+  rm(tmp)
+  }
 }
 
 # Collect the data
@@ -287,6 +290,17 @@ ggplot(data = male_fertility_data, aes(x=tfr_male/tfr_female, y = mac_male-mac_f
   scale_y_continuous("Average parental age gap (MAF - MAC)", n.breaks = 10) +
   scale_colour_viridis_d("Data source:")
 ggsave(filename = "results/tfr_ratio_age_childbearing.pdf", height=12, width=15, unit="cm")
+
+
+# Relationship with the birth rate
+ggplot(data = male_fertility_data, aes(x=tfr_female, y = mac_male-mac_female)) +
+  geom_vline(xintercept=1, linetype="dashed", colour="red") +
+  geom_point(aes(colour = source), alpha = 0.7) +
+  geom_smooth(formula = "y~poly(x, 2)", method="lm", se = F, colour = "grey") +
+  scale_x_continuous("TFR women", n.breaks = 10, expand=c(0.01, 0)) +
+  scale_y_continuous("Average parental age gap (MAF - MAC)", n.breaks = 10) +
+  scale_colour_viridis_d("Data source:")
+
 
 # Reviewer 2 ===================================================================
 
