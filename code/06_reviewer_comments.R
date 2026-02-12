@@ -16,6 +16,9 @@ library(HMDHFDplus)
 # Select the country examples
 countries_examples <- c("China", "Republic of Korea", "India", "Rwanda", "Guatemala")
 
+# Load the graphic style
+source("code/graphics.R")
+
 # Reviewer 1 ===================================================================
 
 ## Comment R. 1. C. 2 ----------------------------------------------------------
@@ -105,18 +108,23 @@ ggplot(data=subset(df_ref, region %in% c("China", "India", "Republic of Korea", 
   scale_linetype_manual("Scenario:", values = c("dotted", "solid")) +
   scale_x_continuous("Year", n.breaks=10, expand=c(0, 0)) +
   scale_y_log10("TFR Ratio (TFR men / TFR women)", n.breaks=8) +
-  theme(panel.spacing.x=unit(0.1, "cm")) +
+  theme(panel.spacing.x=unit(0.5, "cm")) +
   facet_wrap(~ region, nrow=3)
 ggsave(filename = "results/decomposition_tfr_ratio_change.pdf", height=25, width=20, unit="cm")
 
-# Plot for a single case
-df_long <- melt(data=df, id.vars=c("region", "year", "tfr"), measure.vars = c("tfr_component", "pop_component"))
-ggplot(data = subset(df_long, region == "France"), aes(x = year)) +
-  geom_line(aes(y = exp(mod_coeff["(Intercept)"])/tfr)) +
-  geom_line(aes(y = value/tfr, group = variable, colour = variable)) +
-  geom_line(aes(y = exp(mod_coeff["(Intercept)"] * value)/tfr, group = variable, colour=variable), linetype = "dotted")
+# Estimate the difference
+country <- "India"
+year <- 2010
+
+# Estimate the counterfactuals
+df_ref[, percent_diff_tfr := 100 * (tfr_ratio - (exp(mod_coeff["(Intercept)"]) * tfr_component_ref * pop_component)/tfr_ref) / tfr_ratio ]
+df_ref[, percent_diff_pop := 100 * (tfr_ratio - (exp(mod_coeff["(Intercept)"]) * tfr_component * pop_component_ref)/tfr) / tfr_ratio]
   
-## Comment R. 1. C. 4 -----------------------------------------------------------
+# Present the result
+df_ref[region == "India" & year == 2000, ]
+df_ref[region == "India" & year == 2040, ]
+
+## Comment R. 1. C. 4 -------------year## Comment R. 1. C. 4 -----------------------------------------------------------
 
 # Goal: Replot figure 3
 # Distinguish into the mortality and the SRB component
@@ -231,21 +239,12 @@ mfd <- merge(mfd, hfd_countries, by = "CNTRY", all.x=T)
 source("U:/accounts/authentification.R")
 
 # Load for the countries the ASFRs
-for(country in unique(mfd$Country)) {
-  try(tmp <- readHFDweb(CNTRY = country, item = "asfrRR", username = hfd_un, password = hfd_pw))
-  if (length(ls(pattern = "tmp")) != 0) {
-  tmp$Country <- country
-  assign(paste0("hfd_asfr_", country), tmp)
-  rm(tmp)
-  }
-}
-
-# Collect the data
-asfr_hfd <- rbindlist(mget(ls(pattern = "hfd_asfr_")))
+asfr_hfd <- fread("U:/data/global/human_fertility_database/asfrRR.txt")
+asfr_hfd$Age <- as.numeric(str_extract(asfr_hfd$Age, "[0-9]+"))
 
 # Estimatme the TFR and the mean age at chidlbearing
-hfd <- asfr_hfd[, .(tfr_female = sum(ASFR), mac_female = sum(ASFR*Age)/sum(ASFR)), by = .(Country, Year)]
-setnames(hfd, old = "Country", new = "CNTRY")
+hfd <- asfr_hfd[, .(tfr_female = sum(ASFR), mac_female = sum(ASFR*Age)/sum(ASFR)), by = .(Code, Year)]
+setnames(hfd, old = "Code", new = "CNTRY")
 
 # Merge the HFD with the male fertility database
 mfd <- merge(hfd, mfd, by.x=c("Year", "CNTRY"), by.y=c("Year1", "CNTRY"), all.y=T, all.x=F, suffixes = c("_w", "_m"))
@@ -278,7 +277,7 @@ subnational_fert_data[, source := "Subnational male fertility data"]
 ### Bring the data together ----------------------------------------------------
 
 # Bring the data together
-male_fertility_data <- rbindlist(list(subnational_fert_data, schoumaker_tfr), fill = TRUE)
+male_fertility_data <- rbindlist(list(subnational_fert_data, schoumaker_tfr, mfd), fill = TRUE)
 
 # Plot the relationship
 ggplot(data = male_fertility_data, aes(x=tfr_male/tfr_female, y = mac_male-mac_female)) +
@@ -441,39 +440,65 @@ ggsave("results/pop_ratio_ssa.pdf", width=15, height=10, unit="cm")
 # Distinguish into the mortality and the SRB component
 load("data/wpp_male_tfr_prediction.Rda")
 
+# Load the population share
+load("data/wpp_pop.Rda")
+
+# Aggregate the population data
+pop_world <- dt_wpp_pop[, .(pop = sum(pop_male + pop_female)), by = .(region, year)]
+
 # Estimate the ratio
-wpp_tfr_pop[, tfr_ratio := (fit - tfr)/tfr]
+wpp_tfr_pop[, tfr_diff := (fit - tfr)/tfr]
+
+# Merge populaiton data with TFR data
+wpp_tfr_pop <- merge(wpp_tfr_pop, pop_world, by = c("region", "year"))
 
 # Plot the results
-ggplot(subset(wpp_tfr_pop, variant_tfr=="Medium"), aes(x=year, y=tfr_ratio, group=year)) +
+ggplot(subset(wpp_tfr_pop, variant_tfr=="Medium"), aes(x=year, y=tfr_diff, group=year)) +
   geom_jitter() +
   geom_hline(yintercept=1) +
   geom_boxplot()
 
 
 # Plot the distributions
-tfr_distribution <- wpp_tfr_pop[, .(max_tfr_ratio = max(tfr_ratio), 
-                min_tfr_ratio = min(tfr_ratio), 
-                median_tfr_ratio = median(tfr_ratio),
-                lower80_tfr_ratio = quantile(tfr_ratio, prob = (1-0.8)/2),
-                lower95_tfr_ratio = quantile(tfr_ratio, prob = (1-0.95)/2),
-                upper80_tfr_ratio = quantile(tfr_ratio, prob = 1-(1-0.8)/2),
-                upper95_tfr_ratio = quantile(tfr_ratio, prob = 1 - (1-0.95)/2)), by = .(year)]
+tfr_distribution <- wpp_tfr_pop[, .(max_tfr_diff = max(tfr_diff), 
+                min_tfr_diff = min(tfr_diff), 
+                median_tfr_diff = median(tfr_diff),
+                lower80_tfr_diff = quantile(tfr_diff, prob = (1-0.8)/2),
+                lower95_tfr_diff = quantile(tfr_diff, prob = (1-0.95)/2),
+                upper80_tfr_diff = quantile(tfr_diff, prob = 1-(1-0.8)/2),
+                upper95_tfr_diff = quantile(tfr_diff, prob = 1 - (1-0.95)/2)), by = .(year)]
 
 
 # Plot the distribution
 ggplot(tfr_distribution, aes(x=year)) +
-  geom_line(aes(y=median_tfr_ratio, linetype = "Median"), linewidth = 1.5) +
-  geom_line(aes(y=max_tfr_ratio, linetype = "Maximum")) +
-  geom_line(aes(y=min_tfr_ratio, linetype = "Minimum")) +
-  geom_ribbon(aes(ymin = lower80_tfr_ratio, ymax = upper80_tfr_ratio, alpha = "80%")) +
-  geom_ribbon(aes(ymin = lower95_tfr_ratio, ymax = upper95_tfr_ratio, alpha = "95%")) +
+  geom_line(aes(y=median_tfr_diff, linetype = "Median"), linewidth = 1.5) +
+  geom_line(aes(y=max_tfr_diff, linetype = "Maximum")) +
+  geom_line(aes(y=min_tfr_diff, linetype = "Minimum")) +
+  geom_ribbon(aes(ymin = lower80_tfr_diff, ymax = upper80_tfr_diff, alpha = "80%")) +
+  geom_ribbon(aes(ymin = lower95_tfr_diff, ymax = upper95_tfr_diff, alpha = "95%")) +
   geom_hline(yintercept = 0, colour = "red", linetype = "dotted") +
   geom_vline(xintercept = 2025, colour = "red", linetype = "dotted") +
   scale_alpha_discrete("Quantiles: ", range = c(0.5, 0.3)) +
   scale_linetype_manual("", values = c(2, 1, 2)) +
   scale_x_continuous("Year", breaks = seq(1950, 2100, by = 10), expand = c(0, 0)) +
   scale_y_continuous("TFR difference (male TFR - female TFR) / female TFR", n.breaks=12)
-ggsave("results/distribution_tfr_ratio_time.pdf", height=10, width = 15, unit="cm")
+ggsave("results/distribution_tfr_diff_time.pdf", height=10, width = 15, unit="cm")
+
+
+# Estimate the population share
+wpp_tfr_pop[, birth_squeeze := ifelse(fit/tfr<=0.95, 1,0)]
+
+# Aggregate and plot the share of the world population in countries with birth squeezes
+wpp_tfr_pop[variant_tfr == "Medium" & model == "model_agegap"& location_type=="Country/Area", total_pop := sum(pop.y), by = year]
+wpp_tfr_pop[variant_tfr == "Medium" & model == "model_agegap" & location_type=="Country/Area", .(pop = sum(pop.y)), by = .(birth_squeeze, year)] |> 
+  ggplot(aes(x=year, y=pop, colour=as.factor(birth_squeeze), group=birth_squeeze)) +
+  geom_vline(xintercept = 2025, linetype = "dashed") +
+  geom_line() +
+  geom_point() +
+  scale_y_continuous("World population share", expand = c(0, 0), n.breaks = 10, labels = scales::unit_format(unit = "B", scale = 1e-6)) +
+  scale_x_continuous("Year", n.breaks = 20, expand = c(0, 0)) +
+  scale_colour_viridis_d("Birth squeeze (TFR ratio < 0.95)", end=0.8)
+ggsave(filename = "results/pop_living_birth_squeeze.pdf", height=12, width=15)
+
 
 ### END ########################################################################
