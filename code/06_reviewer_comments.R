@@ -272,7 +272,7 @@ subnational_fert_data <- merge(dev, fert, by = c("country", "region", "year"))
 subnational_fert_data <- as.data.table(subnational_fert_data)
 
 # Create an indicator for the data source
-subnational_fert_data[, source := "Subnational male fertility data"]
+subnational_fert_data[, source := "Subnational male fertility"]
 
 ### Bring the data together ----------------------------------------------------
 
@@ -287,7 +287,7 @@ ggplot(data = male_fertility_data, aes(x=tfr_male/tfr_female, y = mac_male-mac_f
   scale_x_log10("TFR ratio (TFR men / TFR women)", n.breaks = 10, expand=c(0.01, 0)) +
   scale_y_continuous("Average parental age gap (MAF - MAC)", n.breaks = 10) +
   scale_colour_viridis_d("Data source:")
-ggsave(filename = "results/tfr_ratio_age_childbearing.pdf", height=12, width=15, unit="cm")
+ggsave(filename = "results/tfr_ratio_age_childbearing.pdf", height=14, width=20, unit="cm")
 
 # Relationship with the birth rate
 ggplot(data = male_fertility_data, aes(x=tfr_female, y = mac_male-mac_female)) +
@@ -489,16 +489,18 @@ ggsave("results/distribution_tfr_diff_time.pdf", height=10, width = 15, unit="cm
 wpp_tfr_pop[, birth_squeeze := ifelse(fit/tfr<=0.95, 1,0)]
 
 # Aggregate and plot the share of the world population in countries with birth squeezes
-wpp_tfr_pop[variant_tfr == "Medium" & model == "model_agegap"& location_type=="Country/Area", total_pop := sum(pop.y), by = year]
-wpp_tfr_pop[variant_tfr == "Medium" & model == "model_agegap" & location_type=="Country/Area", .(pop = sum(pop.y)), by = .(birth_squeeze, year)] |> 
+wpp_tfr_pop[variant_tfr == "Medium" & model == "model_agegap"& location_type=="Country/Area", total_pop := sum(pop), by = year]
+wpp_tfr_pop[variant_tfr == "Medium" & model == "model_agegap" & location_type=="Country/Area", .(pop = sum(pop)), by = .(birth_squeeze, year)] |> 
   ggplot(aes(x=year, y=pop, colour=as.factor(birth_squeeze), group=birth_squeeze)) +
   geom_vline(xintercept = 2025, linetype = "dashed") +
   geom_line() +
   geom_point() +
   scale_y_continuous("World population share", expand = c(0, 0), n.breaks = 10, labels = scales::unit_format(unit = "B", scale = 1e-6)) +
   scale_x_continuous("Year", n.breaks = 20, expand = c(0, 0)) +
-  scale_colour_viridis_d("Birth squeeze (TFR ratio < 0.95)", end=0.8)
-ggsave(filename = "results/pop_living_birth_squeeze.pdf", height=12, width=15)
+  scale_colour_viridis_d("Birth squeeze (male-to-female TFR ratio < 0.95)", end=0.8)
+ggsave(filename = "results/pop_living_birth_squeeze.pdf", height=10, width=15)
 
+
+wpp_tfr_pop[variant_tfr == "Medium" & model == "model_agegap" & location_type=="Country/Area" & year %in% c(2025, 2050, 2100), .(pop = sum(pop.y)), by = .(birth_squeeze, year)]
 
 ### END ########################################################################
