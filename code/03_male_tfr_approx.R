@@ -309,6 +309,9 @@ ggsave(filename = "results/male_fertility_approx_asr.pdf", height=20, width=20, 
 load("data/wpp_tfr.Rda")
 load("data/wpp_pop_adult_sr.Rda")
 
+# Load the regression models
+load("results/model_tfr_approximation.Rda")
+
 # Merge the TFR and the adult sex ratio
 wpp_tfr_pop <- merge(x=wpp_tfr, y=wpp_pop_adult, by=c("region", "location_code", "year"),
                      suffixes = c("_tfr", "_pop"))
@@ -346,7 +349,7 @@ wpp_tfr_pop <- bind_cols(wpp_tfr_pop, tfr_prediction)
 # Create long data
 wpp_tfr_pop <- melt(wpp_tfr_pop, id.vars=c("region", "location_code", "year", "variant_tfr", "tfr", "region_label", "log_asr_agegap"), measure.vars= measure(value.name, model, sep = "."), variable.factor = F)
 
-# Estiamte the relative difference
+# Estimate the relative difference
 wpp_tfr_pop[, tfr_diff := (fit-tfr)/tfr]  
 wpp_tfr_pop[, tfr_diff_upr := (upr-tfr)/tfr]
 wpp_tfr_pop[, tfr_diff_lwr := (lwr-tfr)/tfr]
@@ -404,6 +407,21 @@ ggplot(wpp_tfr_pop, aes(x=year, y=tfr_diff, group=year, colour=year)) +
   scale_y_continuous("Relative difference (female TFR - male TFR)", expand=c(0, 0), n.breaks=10, labels=scales::percent) +
   guides(colour="none")
 ggsave(filename="results/distr_relative_difference_tfr.pdf", height=15, width = 35, unit="cm")
+
+# Plot the global cross-over
+source("U:/Templates/mpidr_graphicstyle.R")
+ggplot(subset(wpp_tfr_pop, region == "World" & model == "model_agegap" & variant_tfr == "Medium"), aes(x=year)) +
+  geom_vline(xintercept = 2026) +
+  geom_line(aes(y = fit, colour = "Men"), linewidth = 1.3) +
+  geom_line(aes(y = tfr, colour = "Women"), linewidth = 1.3) +
+  geom_text(data = subset(wpp_tfr_pop, region == "World" & model == "model_agegap" & variant_tfr == "Medium" & year == 1980), aes(y = fit, label = "Men", colour = "Men"), hjust = -1, fontface = "bold", size = 7) +
+  geom_text(data = subset(wpp_tfr_pop, region == "World" & model == "model_agegap" & variant_tfr == "Medium" & year == 1974), aes(y = tfr, label = "Women", colour = "Women"), hjust = 1, fontface = "bold", size = 7) +
+  guides(colour = "none") +
+  scale_colour_discrete("") +
+  scale_x_continuous("Year", n.breaks = 15, expand = c(0, 0)) +
+  scale_y_continuous("Total fertility rate", n.breaks = 10) +
+  labs(caption = "\uA9 Max Planck Institute for Demographic Research,\nRostock, Germany")
+ggsave(filename = "results/crossover_world.svg", height = 15, width = 19, unit = "cm")
 
 ## Create summary statistics ===========================
 
@@ -477,6 +495,20 @@ ggplot(subset(wpp_tfr_pop, region %in% c("China", "Republic of Korea", "India" )
   guides(colour="none", fill="none")
 ggsave(filename="results/tfr_rel_difference_asia.pdf", height=10, width=20, unit="cm")
 
+
+# Plot the relative difference
+ggplot(subset(wpp_tfr_pop, region %in% c("China", "Republic of Korea", "India" ) & variant_tfr=="Medium"), aes(x=year, group=region, colour=region)) +
+  geom_vline(data=subset(wpp_tfr_pop, region %in% c("China", "Republic of Korea", "India" ) & variant_tfr=="Medium" & cross_over==1), aes(xintercept=year, colour=region)) +
+  geom_ribbon(aes(ymin=0, ymax=tfr_diff, fill=region), alpha=0.5) +
+  geom_hline(yintercept=0) +
+  geom_line(aes(y=tfr_diff)) +
+  scale_x_continuous("Year", n.breaks=10, expand=c(0, 0)) +
+  scale_y_continuous("Relative TFR difference (TFR men - TFR women)", n.breaks=15, expand=c(0, 0), labels=scales::percent) +
+  facet_wrap(~region, ncol=1) +
+  scale_fill_viridis_d(option="D") +
+  scale_colour_viridis_d(option="D") + 
+  guides(colour="none", fill="none")
+ggsave(filename="results/tfr_rel_difference_asia_vert.pdf", height=15, width=12, unit="cm")
 
 ## 3.3. Cross-overs -------------------------------------
 

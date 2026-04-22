@@ -124,7 +124,7 @@ df_ref[, percent_diff_pop := 100 * (tfr_ratio - (exp(mod_coeff["(Intercept)"]) *
 df_ref[region == "India" & year == 2000, ]
 df_ref[region == "India" & year == 2040, ]
 
-## Comment R. 1. C. 4 -------------year## Comment R. 1. C. 4 -----------------------------------------------------------
+## Comment R. 1. C. 4 ------------
 
 # Goal: Replot figure 3
 # Distinguish into the mortality and the SRB component
@@ -165,6 +165,8 @@ decomp_long <- merge(decomp_long, decomp_ref, by=c("region", "age", "variable"),
 pop_ratio <- subset(decomp_long, year %in% years & age %in% ages & region %in% country_selection & variable == "ratio_pop")
 decomp_long <- subset(decomp_long, year %in% years & age %in% ages & region %in% country_selection & variable != "ratio_pop")
 decomp_long[, variable:=str_to_title(str_replace(variable, "ratio_", "Contribution "))]
+decomp_long[, age := paste("Age", age)]
+pop_ratio[, age := paste("Age", age)]
 
 # Plot the final version of the figure
 ggplot(data=decomp_long, aes(x=year)) +
@@ -378,8 +380,9 @@ ggplot(data=subset(pop_sex_ratio, region %in% c("World", countries_examples)), a
   scale_y_log10("Population sex ratio (Men / Women)", n.breaks = 10, sec.axis = sec_axis(~ . / scale_age_difference, name = "Age difference", breaks=c(2, 3, 5, 7, 10, 15))) +
   scale_colour_viridis_d("Population sex ratio:") +
   scale_linetype_manual("", values = c("dashed", "solid")) +
-  facet_wrap(~ region, ncol=2)
-ggsave(filename = "results/pop_sex_ratio_agegap.pdf", height = 25, width = 15, unit="cm")
+  facet_wrap(~ region, ncol=2) +
+  theme(leged.box = "horizontal", legend.direction = "vertical")
+ggsave(filename = "results/pop_sex_ratio_agegap.pdf", height = 22, width = 15, unit="cm")
 
 # Reviewer 2 ===================================================================
 
@@ -482,7 +485,7 @@ ggplot(tfr_distribution, aes(x=year)) +
   scale_linetype_manual("", values = c(2, 1, 2)) +
   scale_x_continuous("Year", breaks = seq(1950, 2100, by = 10), expand = c(0, 0)) +
   scale_y_continuous("TFR difference (male TFR - female TFR) / female TFR", n.breaks=12)
-ggsave("results/distribution_tfr_diff_time.pdf", height=10, width = 15, unit="cm")
+ggsave("results/distribution_tfr_diff_time.pdf", height=15, width = 20, unit="cm")
 
 
 # Estimate the population share
@@ -501,6 +504,6 @@ wpp_tfr_pop[variant_tfr == "Medium" & model == "model_agegap" & location_type=="
 ggsave(filename = "results/pop_living_birth_squeeze.pdf", height=10, width=15)
 
 
-wpp_tfr_pop[variant_tfr == "Medium" & model == "model_agegap" & location_type=="Country/Area" & year %in% c(2025, 2050, 2100), .(pop = sum(pop.y)), by = .(birth_squeeze, year)]
+wpp_tfr_pop[variant_tfr == "Medium" & model == "model_agegap" & location_type=="Country/Area" & year %in% c(2025, 2050, 2100), .(pop = sum(pop)), by = .(birth_squeeze, year)]
 
 ### END ########################################################################

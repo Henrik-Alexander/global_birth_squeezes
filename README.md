@@ -1,9 +1,12 @@
-# Global birth squeezes
+# Masculinization of populations reverses sex differences in fertility
 
-Authors: Henrik-Alexander Schubert, Vegard Skirbekk, Thomas Spoorenberg, Christian Dudel
+# Citation
+H. Schubert, T. Spoorenberg, C. Dudel, & V.F. Skirbekk, Masculinization of populations reverses sex differences in fertility, Proc. Natl. Acad. Sci. U.S.A. 123 (17) e2533317123, https://doi.org/10.1073/pnas.2533317123 (2026).
+
+Authors: Henrik-Alexander Schubert, Thomas Spoorenberg, Christian Dudel,  Vegard Skirbekk
 
 ## Purpose
-This project seeks to describe the in the population at reproductive age between 1950 and 2024 around the world using the World Population Prospects 2024. All code on which this analysis is based was written in the [**R**](https://www.r-project.org/) statistical programming language.
+This project estimates the male TFR and female TFR as well as population structures with respect to age and sex in the period between 1950 and 2024 around the world using the World Population Prospects 2024. All code on which this analysis is based was written in the [**R**](https://www.r-project.org/) statistical programming language.
 
 ## Software and hardware
 The analysis were executed in [**R**](https://www.r-project.org/) version 4.2.1 (2022-06-23 ucrt). The computing unit was platform x86_64-w64-mingw32/x64 (64-bit).
@@ -13,7 +16,7 @@ The program was running under Windows Server x64 (build 17763)
 In order to run the files you need to download the data from WPP 2024 and store in the folder ./raw. The [age-specific fertility rates](https://population.un.org/wpp/assets/Excel%20Files/1_Indicator%20(Standard)/EXCEL_FILES/3_Fertility/WPP2024_FERT_F01_FERTILITY_RATES_BY_SINGLE_AGE_OF_MOTHER.xlsx), the [single-year life tables](https://population.un.org/wpp/assets/Excel%20Files/1_Indicator%20(Standard)/EXCEL_FILES/4_Mortality/WPP2024_MORT_F06_1_SINGLE_AGE_LIFE_TABLE_ESTIMATES_BOTH_SEXES.xlsx) and the [Bundled files](https://population.un.org/wpp/assets/Excel%20Files/1_Indicator%20(Standard)/EXCEL_FILES/1_General/WPP2024_GEN_F01_DEMOGRAPHIC_INDICATORS_COMPACT.xlsx) can be downloaded by following the hyperlinks.
 
 ### Packages
-This work would not have been possible with the scientific and programming contributions of people who developed packages and made them available free of use on [**R-Cran**](https://cran.r-project.org/). I list the packages used in this project to acknowledge the contribution of the authors and to ensure that people can download the required packages in order to fully reproduce the results. Furthermore, the interested reader can follow the link on the package name to read the vignettes.
+This work would not have been possible without the scientific and programming contributions of people who developed packages and made them available free of use on [**R-Cran**](https://cran.r-project.org/). I list the packages used in this project to acknowledge the contribution of the authors and to ensure that people can download the required packages in order to fully reproduce the results. Furthermore, the interested reader can follow the link on the package name to read the vignettes.
 
 - [`stargazer`](https://cran.r-project.org/web/packages/stargazer/vignettes/stargazer.pdf) by Marek Hlavac
 - [`tidyverse`](https://cran.r-project.org/web/packages/tidyverse/index.html) by Hadley Wickham
@@ -56,5 +59,5 @@ This folder is used for storing the manipulated data created with the ./code fil
 ## ./tables:
 This folder contains the tables.
 
-## ./figures:
-This folder contains the figures.
+## ./results:
+This folder contains the results and figures.

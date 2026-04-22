@@ -2,6 +2,7 @@ List of files:
 - pnas_paper.tex
 - supplementary_materials.tex
 - titlepage.tex
+- pnas_paper.pdf
 
 List of figures: Masculinization of populations reverses sex difference in fertility
 
@@ -22,7 +23,14 @@ List of figures in SI:
 - higher_than_medium_sdg.pdf
 - standardization_rel_diff_time_trend.pdf
 - comparison_of_approaches.pdf
-
+- childlessness_tfr_ratio.pdf
+- decompostion_tfr_ratio_change.pdf
+- distribution_tfr_diff_time.pdf
+- tfr_ratio_age_childbearing.pdf
+- pop_sex_ratio_agegap.pdf
+- pop_ratio_ssa.pdf
+- pop_living_birth_squeeze.pdf
+- plot_decomp_sex_ratio_contribution.pdf
 
 
 List of tables:
